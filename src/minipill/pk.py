@@ -1,4 +1,7 @@
-"""One-compartment pharmacokinetic model with first-order oral absorption.
+"""Compartment pharmacokinetic model with first-order oral absorption.
+
+One or two compartments: with k12 = k21 = 0 the peripheral compartment is
+never reached and this is the one-compartment model.
 
 Units used throughout: time in hours, amounts in mg, volume in L,
 so concentrations come out in mg/L (use ``mg_per_l_to_pg_per_ml`` to compare
@@ -6,17 +9,19 @@ with drug-label values).
 
 State variables (all amounts, in mg):
     gut          drug still waiting to be absorbed            G
-    central      drug in the blood                            A  (C = A / V)
+    central      drug in the blood                            A1  (C = A1 / V)
+    peripheral   drug that has moved into the tissues         A2
     eliminated   drug cleared from the blood                  E
     first_pass   drug lost before reaching the blood (1 - F)  L
 
-    dG/dt = -ka G
-    dA/dt =  F ka G - k A
-    dE/dt =  k A
-    dL/dt = (1 - F) ka G
+    dG/dt  = -ka G
+    dA1/dt =  F ka G - (k10 + k12) A1 + k21 A2
+    dA2/dt =  k12 A1 - k21 A2
+    dE/dt  =  k10 A1
+    dL/dt  = (1 - F) ka G
 
-Tracking E and L as well as G and A means G + A + E + L always equals the total
-dose taken, which gives an exact mass-balance check on the numerical solver.
+Tracking E and L as well as G, A1 and A2 means their sum always equals the
+total dose taken, which gives an exact mass-balance check on the numerical solver.
 """
 
 from collections import Counter
@@ -34,15 +39,53 @@ class Drug:
     """Parameters for one hormone."""
 
     name: str
-    half_life_h: float  # elimination half-life
     ka: float  # absorption rate constant, 1/h
     F: float  # oral bioavailability, 0-1
-    V_L: float  # volume of distribution, L
+    V_L: float  # volume of the central (blood) compartment, L
+    k10: float  # elimination rate from the central compartment, 1/h
+    k12: float = 0.0  # central -> peripheral, 1/h
+    k21: float = 0.0  # peripheral -> central, 1/h
+
+    def __post_init__(self):
+        if min(self.ka, self.F, self.V_L, self.k10) <= 0 or self.F > 1:
+            raise ValueError("ka, V_L, k10 must be > 0 and 0 < F <= 1")
+        if self.k12 < 0 or self.k21 < 0 or (self.k12 > 0) != (self.k21 > 0):
+            raise ValueError("k12 and k21 must both be 0 (one compartment) or both > 0")
+
+    @classmethod
+    def one_compartment(cls, name, half_life_h, ka, F, V_L):
+        return cls(name=name, ka=ka, F=F, V_L=V_L, k10=LN2 / half_life_h)
 
     @property
-    def k(self) -> float:
-        """Elimination rate constant, 1/h."""
-        return LN2 / self.half_life_h
+    def n_compartments(self) -> int:
+        return 2 if self.k12 > 0 else 1
+
+    @property
+    def disposition_rates(self) -> tuple[float, ...]:
+        """Rates of the exponential phases after absorption: (k10,) or (alpha, beta), alpha > beta."""
+        if self.n_compartments == 1:
+            return (self.k10,)
+        s = self.k10 + self.k12 + self.k21
+        root = np.sqrt(s * s - 4 * self.k10 * self.k21)
+        return ((s + root) / 2, (s - root) / 2)
+
+    @property
+    def terminal_rate(self) -> float:
+        """Slowest elimination rate, 1/h (sets the terminal half-life)."""
+        return self.disposition_rates[-1]
+
+    @property
+    def terminal_half_life_h(self) -> float:
+        return LN2 / self.terminal_rate
+
+    @property
+    def clearance_L_per_h(self) -> float:
+        return self.k10 * self.V_L
+
+    @property
+    def vss_L(self) -> float:
+        """Volume of distribution at steady state, V1 (1 + k12 / k21)."""
+        return self.V_L * (1 + self.k12 / self.k21) if self.k12 > 0 else self.V_L
 
 
 @dataclass
@@ -50,6 +93,7 @@ class SimResult:
     t: np.ndarray  # h
     gut: np.ndarray  # mg
     central: np.ndarray  # mg
+    peripheral: np.ndarray  # mg
     eliminated: np.ndarray  # mg
     first_pass: np.ndarray  # mg
     conc: np.ndarray  # mg/L
@@ -66,10 +110,16 @@ def mg_per_l_to_ng_per_ml(c):
     return np.asarray(c) * 1e3
 
 
-def _rhs(t, y, ka, k, F):
-    G, A, _E, _L = y
+def _rhs(t, y, ka, F, k10, k12, k21):
+    G, A1, A2, _E, _L = y
     absorbed = ka * G
-    return [-absorbed, F * absorbed - k * A, k * A, (1 - F) * absorbed]
+    return [
+        -absorbed,
+        F * absorbed - (k10 + k12) * A1 + k21 * A2,
+        k12 * A1 - k21 * A2,
+        k10 * A1,
+        (1 - F) * absorbed,
+    ]
 
 
 def simulate(drug: Drug, dose_times, dose_mg: float, t_eval, rtol=1e-10, atol=1e-14) -> SimResult:
@@ -92,10 +142,11 @@ def simulate(drug: Drug, dose_times, dose_mg: float, t_eval, rtol=1e-10, atol=1e
     t_start, t_end = 0.0, t_eval[-1]
     doses_at = Counter(d for d in dose_times if d < t_end)
     breakpoints = sorted({t_start, t_end, *doses_at})
+    args = (drug.ka, drug.F, drug.k10, drug.k12, drug.k21)
 
-    y = np.zeros(4)
+    y = np.zeros(5)
     total_dosed = 0.0
-    out = np.full((4, len(t_eval)), np.nan)
+    out = np.full((5, len(t_eval)), np.nan)
     dosed = np.zeros(len(t_eval))
 
     for i, (a, b) in enumerate(zip(breakpoints[:-1], breakpoints[1:])):
@@ -106,10 +157,7 @@ def simulate(drug: Drug, dose_times, dose_mg: float, t_eval, rtol=1e-10, atol=1e
         last = i == len(breakpoints) - 2
         mask = (t_eval >= a) & ((t_eval <= b) if last else (t_eval < b))
         pts = np.unique(np.concatenate([t_eval[mask], [a, b]]))
-        sol = solve_ivp(
-            _rhs, (a, b), y, t_eval=pts, args=(drug.ka, drug.k, drug.F),
-            method="LSODA", rtol=rtol, atol=atol,
-        )
+        sol = solve_ivp(_rhs, (a, b), y, t_eval=pts, args=args, method="LSODA", rtol=rtol, atol=atol)
         if not sol.success:
             raise RuntimeError(f"ODE solver failed on [{a}, {b}]: {sol.message}")
 
@@ -118,30 +166,54 @@ def simulate(drug: Drug, dose_times, dose_mg: float, t_eval, rtol=1e-10, atol=1e
         dosed[mask] = total_dosed
         y = sol.y[:, -1].copy()
 
-    gut, central, eliminated, first_pass = out
+    gut, central, peripheral, eliminated, first_pass = out
     return SimResult(
-        t=t_eval, gut=gut, central=central, eliminated=eliminated,
+        t=t_eval, gut=gut, central=central, peripheral=peripheral, eliminated=eliminated,
         first_pass=first_pass, conc=central / drug.V_L, dosed=dosed,
     )
 
 
 def bateman(drug: Drug, dose_mg: float, t):
-    """Exact blood concentration (mg/L) after one dose at t = 0 (needs ka != k)."""
+    """Exact one-compartment concentration (mg/L) after one dose at t = 0 (needs ka != k10)."""
+    if drug.n_compartments != 1:
+        raise ValueError("bateman() is for one-compartment drugs; use exact_single_dose()")
     t = np.asarray(t, dtype=float)
-    ka, k = drug.ka, drug.k
+    ka, k = drug.ka, drug.k10
     if np.isclose(ka, k):
-        raise ValueError("Bateman formula needs ka != k")
+        raise ValueError("Bateman formula needs ka != k10")
     c = drug.F * dose_mg * ka / (drug.V_L * (ka - k)) * (np.exp(-k * t) - np.exp(-ka * t))
     return np.where(t >= 0, c, 0.0)
 
 
+def exact_single_dose(drug: Drug, dose_mg: float, t):
+    """Exact concentration (mg/L) after one dose at t = 0, for one or two compartments.
+
+    The model is linear, y' = M y, so y(t) = P exp(D t) P^-1 y0 using the
+    eigendecomposition of M. Independent of the ODE solver used in ``simulate``.
+    """
+    t = np.asarray(t, dtype=float)
+    ka, F, k10, k12, k21 = drug.ka, drug.F, drug.k10, drug.k12, drug.k21
+    M = np.array([
+        [-ka, 0.0, 0.0],
+        [F * ka, -(k10 + k12), k21],
+        [0.0, k12, -k21],
+    ])
+    lam, P = np.linalg.eig(M)
+    if np.min(np.abs(np.subtract.outer(lam, lam)) + np.eye(3)) < 1e-9:
+        raise ValueError("repeated rates: exact solution needs distinct ka, alpha, beta")
+    coef = np.linalg.solve(P, [dose_mg, 0.0, 0.0])
+    tt = np.clip(t, 0, None).ravel()
+    central = ((P[1] * coef) @ np.exp(np.outer(lam, tt))).reshape(t.shape)
+    return np.where(t >= 0, np.real(central) / drug.V_L, 0.0)
+
+
 def tmax(ka: float, k: float) -> float:
-    """Time of peak concentration after one dose."""
+    """One-compartment time of peak concentration after one dose."""
     return np.log(ka / k) / (ka - k)
 
 
 def ka_from_tmax(tmax_h: float, half_life_h: float) -> float:
-    """Absorption rate that puts the single-dose peak at ``tmax_h``.
+    """One-compartment absorption rate that puts the single-dose peak at ``tmax_h``.
 
     Picks the solution with ka > k (absorption faster than elimination), which
     is the case for every drug in this project.
@@ -153,5 +225,9 @@ def ka_from_tmax(tmax_h: float, half_life_h: float) -> float:
 
 
 def accumulation_ratio(drug: Drug, tau_h: float) -> float:
-    """Steady-state / first-dose ratio for doses every ``tau_h`` hours, 1 / (1 - e^(-k tau))."""
-    return 1 / (1 - np.exp(-drug.k * tau_h))
+    """Steady-state / first-dose ratio for doses every ``tau_h`` hours, 1 / (1 - e^(-k tau)).
+
+    Exact for one compartment (k = k10). For two compartments, uses the terminal
+    rate, which is approximate.
+    """
+    return 1 / (1 - np.exp(-drug.terminal_rate * tau_h))

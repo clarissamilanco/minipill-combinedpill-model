@@ -53,23 +53,38 @@ $$\frac{dC}{dt} = \frac{F \, k_a \, G}{V} - k \, C, \qquad k = \frac{\ln 2}{t_{1
 
 Each pill taken adds one dose to G at the time it's taken.
 
+**Second compartment (norethindrone).** The one-compartment model can't match norethindrone's measured levels (see checks below), so norethindrone gets a second, "tissue" compartment that exchanges drug with the blood:
+
+$$\frac{dA_1}{dt} = F \, k_a \, G - (k_{10} + k_{12}) A_1 + k_{21} A_2, \qquad \frac{dA_2}{dt} = k_{12} A_1 - k_{21} A_2, \qquad C = \frac{A_1}{V_1}$$
+
+After a dose, levels first fall quickly as drug moves into the tissues (half-life ≈ 0.8 h), then slowly as it is eliminated (half-life ≈ 7.8 h). The five rates and volume are **fitted** to the label's single-dose values (time to peak, peak, average and 24-hour levels, half-life) by `scripts/fit_norethindrone.py`, not measured. The fit can't separate absorption from the fast tissue phase, so those two rates individually aren't well determined; the curve itself is.
+
 **Planned additions:**
 
-- **A second compartment** for norethindrone, if the one-compartment model can't match its measured 24-hour level (see checks below).
 - **The estrogen–SHBG effect:** ethinyl estradiol slowly raises SHBG over the cycle, and higher SHBG slows levonorgestrel clearance. The strength and speed of this effect aren't reported directly, so I calibrate them to match published data and say so clearly.
 
 ## How I know it's right
 
 | Check | What it tests | Expected result | Status |
 | --- | --- | --- | --- |
-| Exact single-dose solution | The numerical simulation | Matches the Bateman function | ✅ Passing |
+| Exact single-dose solution | The numerical simulation | Matches the Bateman function (one compartment) and the exact matrix solution (two compartments) | ✅ Passing |
 | Mass balance | No drug appears or disappears | Absorbed + eliminated + remaining = total dose | ✅ Passing |
 | Steady-state accumulation | Repeated daily dosing | 1 / (1 − e^(−kτ)): ≈ 1.14 for norethindrone, ≈ 2.35 for levonorgestrel (30 h half-life) | ✅ Passing |
-| Norethindrone single dose | Published label values | Peak ≈ 4,800 pg/mL near 1.2 h; ≈ 130 pg/mL at 24 h | ❌ Fails as expected (one compartment) |
+| Norethindrone single dose | Published label values | Peak ≈ 4,800 pg/mL near 1.2 h; ≈ 130 pg/mL at 24 h | ❌ One compartment (7.6-fold drop vs. 37-fold) · ✅ Two compartments (all label values within 5%) |
 | Combined pill steady state | Published label values (0.10 mg levonorgestrel) | Steady state from day 19; peak ≈ 6.0 ng/mL, low ≈ 1.9 ng/mL | ☐ Planned |
 | SHBG effect | A behavior the science requires | Without SHBG, the model underpredicts levonorgestrel's 3- to 4-fold rise; with it, the gap closes | ☐ Planned |
 
-I expect the one-compartment model to **fail** the norethindrone 24-hour check: the measured drop is about 37-fold in 24 hours, much steeper than the 8-fold an 8-hour half-life predicts. Finding out why, and whether a second compartment fixes it, is part of the project.
+As expected, the one-compartment model **fails** the norethindrone 24-hour check: the measured drop is about 37-fold in 24 hours, much steeper than the 7.6-fold an 8-hour half-life predicts. A second compartment fixes it: the steep early drop is drug moving into the tissues, not leaving the body.
+
+| Norethindrone, single 0.35 mg dose | Label | One compartment | Two compartments |
+| --- | --- | --- | --- |
+| Time to peak | 1.2 ± 0.5 h | 1.2 h | 1.18 h |
+| Peak | 4,817 ± 1,533 pg/mL | 851 pg/mL | 4,724 pg/mL |
+| Average over 24 h | 885 ± 250 pg/mL | — | 914 pg/mL |
+| Level at 24 h | 130 ± 47 pg/mL | 113 pg/mL | 129 pg/mL |
+| Half-life | 7.7 ± 0.5 h | 7.7 h (input) | 7.8 h |
+
+The fitted model implies a clearance of about 230 L/day and a volume of about 1 L/kg, lower than the label's "about 600 L/day" and "about 4 L/kg". Those label figures come from separate studies and don't match the label's own concentration data, so I fit to the concentrations.
 
 ## Running it
 
@@ -89,7 +104,11 @@ pip install -r requirements.txt
 pytest
 ```
 
-The norethindrone 24-hour check is marked as an expected failure (`xfail`) until the second compartment is added.
+**Refitting norethindrone** (prints the fitted values to copy into `src/minipill/params.py`):
+
+```
+python scripts/fit_norethindrone.py
+```
 
 ## Repository layout
 
@@ -97,6 +116,7 @@ The norethindrone 24-hour check is marked as an expected failure (`xfail`) until
 sources/    Drug labels and papers the parameters come from
 src/        The model and simulation code
 tests/      Checks against exact solutions and published values
+scripts/    Parameter fitting
 app/        The web app
 journal/    Claude Code session logs (my build journal)
 ```
