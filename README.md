@@ -12,6 +12,15 @@
 
 ---
 
+## In plain terms
+
+- **Each pill is a burst of hormone that the body then clears.** Levels peak an hour or two after the pill and fall until the next one.
+- **The minipill's hormone clears fast.** Half of it is gone in about 8 hours, so by the next day very little is left. A pill 3 hours late lets levels fall about 23% below their usual daily low. A skipped pill lets them fall about 88% below.
+- **The combined pill's progestin clears slowly.** Half of it is gone in about a day and a half, so each pill stacks on what's left of the last one and levels build up over the pack. In the model so far, a pill 3 hours late dips levels only about 6% below their usual low, and a full day late about 38%.
+- **The estrogen in the combined pill should widen that gap further.** It makes the body produce a protein (SHBG) that holds onto the progestin and slows its removal, so real levels build up about twice as high by week 3. That effect isn't in the model yet, so the combined-pill numbers above are preliminary.
+
+Interactive charts: `app/norethindrone_preview.html` and `app/levonorgestrel_preview.html` (the levonorgestrel page has a plain-language view of the late-pill chart).
+
 ## The question
 
 The progestin-only "minipill" has to be taken within a 3-hour window: CDC guidance counts a minipill taken more than 3 hours late as missed [1]. A single combined pill, on the other hand, can be up to 48 hours late without needing backup contraception; only at 48 hours or more (two or more pills missed) does the CDC advise condoms or abstinence until 7 days of pills have been taken in a row [2].

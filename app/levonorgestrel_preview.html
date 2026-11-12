@@ -1,0 +1,535 @@
+<title>Levonorgestrel Levels</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, each chart a lab-figure panel with its legend above and readout below (matches norethindrone_preview.html) */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --ink: #14171c;
+  --ink-2: #4a5160;
+  --muted: #7a8190;
+  --grid: #e4e7ec;
+  --rule: #d5d9e0;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --baseline: #9aa1ae;
+  --focus: #2a78d6;
+  --placebo: #eef0f3;
+  --font-body: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #101216; --surface: #171a20; --ink: #eceef2; --ink-2: #b6bcc8; --muted: #858c9a;
+    --grid: #262a32; --rule: #333844; --series-1: #3987e5; --series-2: #d95926; --baseline: #6b7280;
+    --focus: #6da7ec; --placebo: #1d2027;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #101216; --surface: #171a20; --ink: #eceef2; --ink-2: #b6bcc8; --muted: #858c9a;
+  --grid: #262a32; --rule: #333844; --series-1: #3987e5; --series-2: #d95926; --baseline: #6b7280;
+  --focus: #6da7ec; --placebo: #1d2027;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 56px;
+}
+main { max-width: 880px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2 { text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(28px, 4.5vw, 38px); font-weight: 700; letter-spacing: -0.015em; line-height: 1.15; }
+h2 { font-size: 21px; font-weight: 650; letter-spacing: -0.005em; }
+p { margin: 0; max-width: 66ch; }
+.eyebrow { font-family: var(--font-data); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+header { display: grid; gap: 12px; }
+.lede { color: var(--ink-2); font-size: 16.5px; }
+section { display: grid; gap: 16px; }
+.section-head { display: grid; gap: 6px; }
+.section-head p { color: var(--ink-2); }
+
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 16px 12px; display: grid; gap: 12px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend svg { flex: none; }
+
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; }
+.seg button { font: 500 13px var(--font-body); color: var(--ink-2); background: transparent; border: 0; padding: 6px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: var(--font-data); font-size: 11px; fill: var(--muted); }
+.chart .axis-title { font-family: var(--font-body); font-size: 12px; fill: var(--ink-2); }
+.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart .baseline-axis { stroke: var(--rule); stroke-width: 1; }
+.chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .s1 { stroke: var(--series-1); }
+.chart .s2 { stroke: var(--series-2); stroke-dasharray: 7 5; }
+.chart .s0 { stroke: var(--baseline); }
+.chart .ref { stroke: var(--ink-2); stroke-width: 1.25; stroke-dasharray: 2 4; fill: none; }
+.chart .ref-label { fill: var(--ink-2); font-family: var(--font-body); font-size: 12px; }
+.chart .errbar { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+.chart .pt { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.chart .pt-open { fill: var(--surface); stroke: var(--ink); stroke-width: 1.75; }
+.chart .crosshair { stroke: var(--ink-2); stroke-width: 1; opacity: 0.6; }
+.chart .hover-dot { stroke: var(--surface); stroke-width: 2; }
+.chart .pill-mark { fill: var(--muted); }
+.chart .pill-late { fill: var(--series-1); }
+.chart .shade { fill: var(--series-1); opacity: 0.12; }
+.chart .placebo { fill: var(--placebo); }
+.chart .band-label { font-family: var(--font-body); font-size: 12px; fill: var(--muted); }
+
+.tip { position: absolute; pointer-events: none; z-index: 2; background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.12); padding: 8px 10px; font-size: 12.5px; min-width: 180px; display: grid; gap: 4px; }
+.tip .tip-head { font-family: var(--font-data); font-size: 11.5px; color: var(--muted); }
+.tip .row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.tip .row span:first-child { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.tip .v { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.sw { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 520px; }
+th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-weight: 600; color: var(--ink-2); font-size: 12.5px; border-bottom-color: var(--rule); }
+td { font-family: var(--font-data); font-variant-numeric: tabular-nums; font-size: 13px; }
+td:first-child { font-family: var(--font-body); font-size: 14px; }
+td.miss { color: var(--series-2); }
+td.note { font-family: var(--font-body); font-size: 12.5px; color: var(--muted); white-space: normal; }
+tbody tr:last-child td { border-bottom: 0; }
+
+.controls { display: grid; gap: 10px; }
+.slider-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.slider-row label { font-weight: 600; font-size: 14px; }
+.slider-row input[type="range"] { flex: 1 1 220px; accent-color: var(--series-1); }
+.late-val { font-family: var(--font-data); font-variant-numeric: tabular-nums; font-size: 14px; min-width: 9ch; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.stat { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; align-content: start; }
+.stat .k { font-size: 12.5px; color: var(--ink-2); }
+.stat .n { font-family: var(--font-data); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 500; }
+.stat .n small { font-size: 13px; color: var(--muted); font-weight: 400; }
+.stat .d { font-size: 12.5px; color: var(--muted); }
+.summary { font-size: 15.5px; }
+.summary strong { font-weight: 650; }
+.callout { border-left: 3px solid var(--series-2); padding: 4px 0 4px 14px; color: var(--ink-2); }
+
+.plain { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; display: grid; gap: 10px; }
+.plain h2 { font-size: 17px; }
+.plain ul { margin: 0; padding-left: 1.1em; display: grid; gap: 8px; max-width: 70ch; }
+.plain li::marker { color: var(--series-1); }
+.plain b, .say b { font-weight: 650; }
+.say { font-size: 16px; color: var(--ink); max-width: 66ch; }
+.say .tag { font-family: var(--font-data); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--series-1); margin-right: 8px; }
+
+footer { color: var(--muted); font-size: 13px; display: grid; gap: 6px; border-top: 1px solid var(--rule); padding-top: 16px; }
+footer p { max-width: 80ch; }
+
+@media (max-width: 560px) {
+  .stats { grid-template-columns: 1fr; }
+  body { padding-block: 28px 40px; }
+}
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">Combined pill model · levonorgestrel 0.10 mg (Alesse) · no SHBG yet</div>
+    <h1>Levonorgestrel levels in the blood</h1>
+    <p class="lede">The combined pill's progestin peaks about 1.6 hours after each pill and then falls slowly, with a half-life of about 34 hours. This version leaves out SHBG, the binding protein the pill's estrogen raises over the month, so it should match day 1 and fall short later in the pack.</p>
+  </header>
+
+  <section class="plain" aria-labelledby="h-plain">
+    <h2 id="h-plain">The short version</h2>
+    <ul>
+      <li>Each pill sends the hormone up within about an hour and a half. After that the body clears it slowly: <b>half is gone after about a day and a half</b>. The minipill's hormone loses half in about 8 hours.</li>
+      <li>Because it clears so slowly, some of each pill is still there when the next one comes, so <b>levels build up over the pack</b>. By week 3 the low point before a pill is about 2.6 times what's left a day after the very first pill.</li>
+      <li>In the real pill, levels build up even more than this model shows. The pill's estrogen makes the body produce more of a protein (SHBG) that holds onto the hormone and slows its removal. That part isn't in the model yet.</li>
+      <li>So a late pill matters less: <b>3 hours late, levels dip about 6%</b> below their usual low (the minipill dips 23%). A full day late, about 38%.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-single">
+    <div class="section-head">
+      <h2 id="h-single">Day 1: model vs. Alesse label</h2>
+      <p class="say"><span class="tag">In plain words</span>After the very first pill, the model's curve goes through the measured peak. The simpler one-compartment version can't, which is why the model has two.</p>
+      <p>With the label's own clearance and volume, one compartment puts the peak at 0.69 ng/mL, 4 times too low. A tissue compartment fitted to day 1 matches the peak, time to peak, AUC and half-life.</p>
+    </div>
+    <div class="panel">
+      <div class="toolbar">
+        <div class="legend">
+          <span><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--series-1)" stroke-width="2.5" stroke-linecap="round"/></svg>Two compartments (fitted)</span>
+          <span><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--series-2)" stroke-width="2.5" stroke-dasharray="6 4"/></svg>One compartment</span>
+          <span><svg width="14" height="14" aria-hidden="true"><line x1="7" y1="1" x2="7" y2="13" stroke="var(--ink)" stroke-width="1.5"/><circle cx="7" cy="7" r="4" fill="var(--ink)" stroke="var(--surface)" stroke-width="1.5"/></svg>Label peak (mean ± SD)</span>
+        </div>
+        <div class="seg" role="group" aria-label="Vertical scale">
+          <button type="button" id="scale-log" aria-pressed="true">Log scale</button>
+          <button type="button" id="scale-lin" aria-pressed="false">Linear</button>
+        </div>
+      </div>
+      <div class="chart" id="chart-single"></div>
+    </div>
+    <div class="table-wrap">
+      <table aria-label="Day 1: label vs. models">
+        <thead><tr><th>Alesse day 1, 0.10 mg</th><th>Label</th><th>One compartment</th><th>Two compartments</th></tr></thead>
+        <tbody id="tbl-single"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-pack">
+    <div class="section-head">
+      <h2 id="h-pack">A full pack, without SHBG</h2>
+      <p class="say"><span class="tag">In plain words</span>Levels climb day by day as pills stack up, then drain away in the placebo week. Real measurements climb higher than the model. That missing piece is the estrogen effect.</p>
+      <p>One active pill a day for 21 days, then 7 placebo days. The open points are what Alesse measured on days 1, 6 and 21. The model only builds up from the 34-hour half-life, so by day 21 it sits well below the measured levels. That gap is what SHBG has to explain.</p>
+    </div>
+    <div class="panel">
+      <div class="legend">
+        <span><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--series-1)" stroke-width="2.5" stroke-linecap="round"/></svg>Model, no SHBG</span>
+        <span><svg width="14" height="14" aria-hidden="true"><line x1="7" y1="1" x2="7" y2="13" stroke="var(--ink)" stroke-width="1.5"/><circle cx="7" cy="7" r="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.75"/></svg>Alesse measured (mean ± SD)</span>
+        <span><svg width="16" height="12" aria-hidden="true"><rect x="1" y="1" width="14" height="10" rx="2" fill="var(--placebo)" stroke="var(--rule)"/></svg>Placebo week</span>
+      </div>
+      <div class="chart" id="chart-pack"></div>
+    </div>
+    <div class="table-wrap">
+      <table aria-label="Pack: label vs. model without SHBG">
+        <thead><tr><th>After daily pills</th><th>Alesse measured</th><th>Model, no SHBG</th><th>Measured ÷ model</th></tr></thead>
+        <tbody id="tbl-pack"></tbody>
+      </table>
+    </div>
+    <p class="callout">The day-21 AUC gap (×1.9) matches the label's fall in clearance from day 1 to day 21 (53.7 → 28.4 mL/h/kg, also ×1.9). Adding SHBG, calibrated to those days, is the next step.</p>
+  </section>
+
+  <section aria-labelledby="h-late">
+    <div class="section-head">
+      <h2 id="h-late">When a pill is late</h2>
+      <p class="say"><span class="tag">In plain words</span>Slide to make the day-15 pill late. The chart shows how far levels fall compared with their normal daily low (100%), and for how long.</p>
+      <p>Pills on time until day 15, whose pill is then taken late; later pills stay on their usual time, as CDC advises. The dotted line is the usual low before the day-15 pill. CDC says no backup is needed under 48 hours since the pill was due.</p>
+    </div>
+    <div class="panel">
+      <div class="controls">
+        <div class="slider-row">
+          <label for="late">Pill taken</label>
+          <input type="range" id="late" min="0" max="47" step="1" value="24" aria-describedby="late-val">
+          <span class="late-val" id="late-val">24 h late</span>
+        </div>
+        <div class="toolbar">
+        <div class="seg" role="group" aria-label="Presets">
+          <button type="button" data-late="0">On time</button>
+          <button type="button" data-late="3">3 h late</button>
+          <button type="button" data-late="24">24 h late</button>
+          <button type="button" data-late="skip2">2 pills missed (48 h)</button>
+        </div>
+        <div class="seg" role="group" aria-label="Show levels as">
+          <button type="button" id="unit-pct" aria-pressed="true">% of usual low</button>
+          <button type="button" id="unit-ng" aria-pressed="false">ng/mL</button>
+        </div>
+        </div>
+      </div>
+      <div class="legend">
+        <span><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--series-1)" stroke-width="2.5" stroke-linecap="round"/></svg><span id="legend-late-label">24 h late</span></span>
+        <span><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--baseline)" stroke-width="2.5" stroke-linecap="round"/></svg>All pills on time</span>
+        <span><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--ink-2)" stroke-width="1.5" stroke-dasharray="2 4"/></svg>Usual low</span>
+      </div>
+      <div class="chart" id="chart-late"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="k">Usual low</span><span class="n" id="st-low">–</span><span class="d">just before the day-15 pill</span></div>
+      <div class="stat"><span class="k">Lowest level</span><span class="n" id="st-min">–</span><span class="d" id="st-min-d">–</span></div>
+      <div class="stat"><span class="k">Time below usual low</span><span class="n" id="st-time">–</span><span class="d">extra hours, vs. on time</span></div>
+    </div>
+    <p class="summary" id="summary"></p>
+    <p class="callout">Preliminary: without SHBG, levels here are lower than the real pill's. For comparison, a skipped norethindrone pill drops 88% below its usual low.</p>
+  </section>
+
+  <footer>
+    <p>Model: levonorgestrel, two compartments with first-order absorption. F = 1 from the label; absorption rate assumed (0.8 /h; any value from 0.4 to 1.2 /h gives nearly the same curve after the first few hours); other parameters fitted to Alesse day 1 (peak, time to peak, AUC, half-life). No SHBG effect. Curves are exact solutions, and multi-pill scenarios add up single-dose curves.</p>
+    <p>An educational model built for a course project, not medical advice. Hormone level stands in for protection here.</p>
+  </footer>
+</main>
+
+<script>
+(() => {
+  // Exact single-dose curves for 0.10 mg, as sums of a * exp(-r t), in ng/mL (from src/minipill/params.py).
+  const MODELS = {
+    two: [[0.020224393181869305, 0.5260762076222529], [0.5547756068181308, 17.861998599775813], [0.8, -18.388074807398066]],
+    one: [[0.020208372611077125, 0.71588082529646], [3.182234573046776, -0.71588082529646]],
+  };
+  // Alesse label, Table I and text.
+  const DAY1 = { tmax: 1.6, tmaxSd: 0.9, cmax: 2.75, cmaxSd: 0.88, auc: 35.2, aucSd: 12.8, half: 34.3 };
+  const MEASURED = [ // [label, time (h from first pill), mean, sd]
+    ["Day 1 peak", 1.6, 2.75, 0.88],
+    ["Day 6 peak", 5 * 24 + 1.5, 4.52, 1.79],
+    ["Day 21 peak", 20 * 24 + 1.5, 6.0, 2.65],
+    ["Low before next pill (steady state)", 21 * 24, 1.9, 1.0],
+  ];
+
+  const single = (m, t) => (t <= 0 ? 0 : Math.max(0, m.reduce((s, [r, a]) => s + a * Math.exp(-r * t), 0)));
+  const multi = (m, doses, t) => doses.reduce((s, d) => s + (t > d ? single(m, t - d) : 0), 0);
+
+  const fmt = (v) => (v >= 10 ? v.toFixed(1) : v >= 1 ? v.toFixed(2) : v.toFixed(2));
+  const fmtH = (h) => (h < 10 ? h.toFixed(1) : Math.round(h).toString());
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs = {}, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  let logScale = true;
+
+  function lineChart(container, cfg) {
+    container.innerHTML = "";
+    const W = Math.max(300, container.clientWidth);
+    const H = Math.round(Math.min(400, Math.max(260, W * 0.55)));
+    const m = { l: 58, r: 14, t: 14, b: 46 };
+    const pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": cfg.aria });
+    container.appendChild(svg);
+    const xs = (x) => m.l + ((x - cfg.xMin) / (cfg.xMax - cfg.xMin)) * pw;
+    const lyMin = Math.log10(cfg.yLog[0]), lyMax = Math.log10(cfg.yLog[1]);
+    const useLog = logScale && !cfg.linear;
+    const vFmt = cfg.vFmt || fmt;
+    const ys = useLog
+      ? (v) => m.t + ph - ((Math.log10(Math.max(v, cfg.yLog[0])) - lyMin) / (lyMax - lyMin)) * ph
+      : (v) => m.t + ph - (Math.min(Math.max(v, 0), cfg.yLin[1]) / cfg.yLin[1]) * ph;
+    const yTicks = useLog ? [0.03, 0.1, 0.3, 1, 3, 10].filter((v) => v >= cfg.yLog[0] && v <= cfg.yLog[1]) : cfg.yLinTicks;
+
+    if (cfg.under) cfg.under({ svg, xs, ys, m, pw, ph });
+    for (const v of yTicks) {
+      const y = ys(v);
+      el("line", { x1: m.l, x2: m.l + pw, y1: y, y2: y, class: "gridline" }, svg);
+      el("text", { x: m.l - 8, y: y + 3.5, "text-anchor": "end" }, svg).textContent = cfg.tickFmt ? cfg.tickFmt(v) : String(v);
+    }
+    el("line", { x1: m.l, x2: m.l + pw, y1: m.t + ph, y2: m.t + ph, class: "baseline-axis" }, svg);
+    for (const x of cfg.xTicks) el("text", { x: xs(x), y: m.t + ph + 17, "text-anchor": "middle" }, svg).textContent = cfg.xFmt(x);
+    el("text", { x: m.l + pw / 2, y: H - 6, "text-anchor": "middle", class: "axis-title" }, svg).textContent = cfg.xLabel;
+    el("text", { x: 14, y: m.t + ph / 2, "text-anchor": "middle", class: "axis-title", transform: `rotate(-90 14 ${m.t + ph / 2})` }, svg).textContent = cfg.yTitle || "Levonorgestrel, ng/mL";
+
+    if (cfg.before) cfg.before({ svg, xs, ys, m, pw, ph });
+    const N = cfg.samples || 900;
+    for (const s of cfg.series) {
+      let d = "";
+      for (let i = 0; i <= N; i++) {
+        const x = cfg.xMin + ((cfg.xMax - cfg.xMin) * i) / N;
+        d += (i ? "L" : "M") + xs(x).toFixed(2) + "," + ys(s.fn(x)).toFixed(2);
+      }
+      el("path", { d, class: "line " + s.cls }, svg);
+    }
+    if (cfg.after) cfg.after({ svg, xs, ys, m, pw, ph });
+
+    const cross = el("line", { y1: m.t, y2: m.t + ph, class: "crosshair", visibility: "hidden" }, svg);
+    const dots = cfg.series.map((s) => el("circle", { r: 4.5, class: "hover-dot", fill: `var(${s.color})`, visibility: "hidden" }, svg));
+    const hit = el("rect", { x: m.l, y: m.t, width: pw, height: ph, fill: "transparent" }, svg);
+    const tip = document.createElement("div");
+    tip.className = "tip"; tip.hidden = true;
+    container.appendChild(tip);
+    const show = (evt) => {
+      const r = svg.getBoundingClientRect();
+      const px = ((evt.clientX - r.left) / r.width) * W;
+      const x = Math.min(cfg.xMax, Math.max(cfg.xMin, cfg.xMin + ((px - m.l) / pw) * (cfg.xMax - cfg.xMin)));
+      const cx = xs(x);
+      cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
+      let rows = "";
+      cfg.series.forEach((s, i) => {
+        const v = s.fn(x);
+        dots[i].setAttribute("cx", cx); dots[i].setAttribute("cy", ys(v)); dots[i].setAttribute("visibility", "visible");
+        rows += `<div class="row"><span><i class="sw" style="background:var(${s.color})"></i>${s.label}</span><span class="v">${vFmt(v)}</span></div>`;
+      });
+      tip.innerHTML = `<div class="tip-head">${cfg.tipHead(x)}</div>${rows}${cfg.tipExtra ? cfg.tipExtra(x) : ""}`;
+      tip.hidden = false;
+      const cw = container.clientWidth, tw = tip.offsetWidth, left = (cx / W) * cw;
+      tip.style.left = (left + 14 + tw > cw ? left - 14 - tw : left + 14) + "px";
+      tip.style.top = Math.max(0, ((m.t + 6) / H) * container.clientHeight) + "px";
+    };
+    const hide = () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dots.forEach((d) => d.setAttribute("visibility", "hidden")); };
+    hit.addEventListener("pointermove", show);
+    hit.addEventListener("pointerdown", show);
+    hit.addEventListener("pointerleave", hide);
+  }
+
+  const point = (svg, xs, ys, x, y, sd, xsd, open) => {
+    el("line", { x1: xs(x), x2: xs(x), y1: ys(Math.max(y - sd, 0.001)), y2: ys(y + sd), class: "errbar" }, svg);
+    if (xsd) el("line", { x1: xs(Math.max(0, x - xsd)), x2: xs(x + xsd), y1: ys(y), y2: ys(y), class: "errbar" }, svg);
+    el("circle", { cx: xs(x), cy: ys(y), r: 5, class: open ? "pt-open" : "pt" }, svg);
+  };
+
+  // ---------- chart 1: day 1 ----------
+  const singleEl = document.getElementById("chart-single");
+  function drawSingle() {
+    lineChart(singleEl, {
+      aria: "Levonorgestrel after one 0.10 mg pill over 72 hours: two-compartment model, one-compartment model and the Alesse label peak",
+      xMin: 0, xMax: 72, xTicks: [0, 12, 24, 36, 48, 60, 72], xFmt: (x) => x + " h", xLabel: "Hours after the pill",
+      yLog: [0.03, 10], yLin: [0, 4], yLinTicks: [0, 1, 2, 3, 4],
+      series: [
+        { label: "Two compartments", cls: "s1", color: "--series-1", fn: (t) => single(MODELS.two, t) },
+        { label: "One compartment", cls: "s2", color: "--series-2", fn: (t) => single(MODELS.one, t) },
+      ],
+      tipHead: (x) => `${x.toFixed(1)} h after the pill · ng/mL`,
+      tipExtra: (x) => (Math.abs(x - DAY1.tmax) < 1.2 ? `<div class="row"><span>Label peak</span><span class="v">${DAY1.cmax} ± ${DAY1.cmaxSd}</span></div>` : ""),
+      after: ({ svg, xs, ys }) => point(svg, xs, ys, DAY1.tmax, DAY1.cmax, DAY1.cmaxSd, DAY1.tmaxSd, false),
+    });
+  }
+  function stats(m) {
+    let cmax = 0, tmax = 0;
+    for (let t = 0; t <= 8; t += 0.001) { const c = single(m, t); if (c > cmax) { cmax = c; tmax = t; } }
+    const auc = m.reduce((s, [r, a]) => s + a / r, 0);
+    return { tmax, cmax, auc, c24: single(m, 24), half: Math.LN2 / Math.min(...m.map(([r]) => r)) };
+  }
+  const s1 = stats(MODELS.one), s2 = stats(MODELS.two);
+  const within = (v, mean, sd) => Math.abs(v - mean) <= sd;
+  const rows1 = [
+    ["Time to peak", `${DAY1.tmax} ± ${DAY1.tmaxSd} h`, (s) => s.tmax.toFixed(2) + " h", (s) => within(s.tmax, DAY1.tmax, DAY1.tmaxSd)],
+    ["Peak", `${DAY1.cmax} ± ${DAY1.cmaxSd}`, (s) => fmt(s.cmax), (s) => within(s.cmax, DAY1.cmax, DAY1.cmaxSd)],
+    ["AUC, ng·h/mL", `${DAY1.auc} ± ${DAY1.aucSd}`, (s) => s.auc.toFixed(1), (s) => within(s.auc, DAY1.auc, DAY1.aucSd)],
+    ["Half-life", `${DAY1.half} h`, (s) => s.half.toFixed(1) + " h", (s) => Math.abs(s.half / DAY1.half - 1) < 0.05],
+    ["Level at 24 h", "not reported", (s) => fmt(s.c24), () => true],
+  ];
+  document.getElementById("tbl-single").innerHTML = rows1.map(([name, lab, f, ok]) =>
+    `<tr><td>${name}</td><td>${lab}</td><td class="${ok(s1) ? "" : "miss"}">${f(s1)}${ok(s1) ? "" : " ✕"}</td><td class="${ok(s2) ? "" : "miss"}">${f(s2)}${ok(s2) ? "" : " ✕"}</td></tr>`
+  ).join("") + `<tr><td colspan="4" class="note">Concentrations in ng/mL. ✕ marks a value outside the label's mean ± SD. The one-compartment AUC and half-life are inputs from the label, so they match by construction. Half-life = ln 2 × (Vz/F) ÷ (CL/F) from Table I.</td></tr>`;
+
+  // ---------- chart 2: full pack ----------
+  const PACK = Array.from({ length: 21 }, (_, i) => 24 * i);
+  const packFn = (t) => multi(MODELS.two, PACK, t);
+  const packEl = document.getElementById("chart-pack");
+  function drawPack() {
+    lineChart(packEl, {
+      aria: "Levonorgestrel over one 28-day pack without SHBG, with Alesse measured values on days 1, 6 and 21",
+      xMin: 0, xMax: 28 * 24, xTicks: [0, 7, 14, 21, 28].map((d) => d * 24), xFmt: (x) => "day " + (x / 24 + 1), xLabel: "Day of pack (pill taken at the start of each day)",
+      yLog: [0.03, 10], yLin: [0, 9], yLinTicks: [0, 3, 6, 9], samples: 2400,
+      series: [{ label: "Model, no SHBG", cls: "s1", color: "--series-1", fn: packFn }],
+      tipHead: (x) => `day ${Math.floor(x / 24) + 1}, +${(x % 24).toFixed(1)} h · ng/mL`,
+      under: ({ svg, xs, m, ph }) => {
+        el("rect", { x: xs(21 * 24), y: m.t, width: xs(28 * 24) - xs(21 * 24), height: ph, class: "placebo" }, svg);
+        el("text", { x: (xs(21 * 24) + xs(28 * 24)) / 2, y: m.t + 16, "text-anchor": "middle", class: "band-label" }, svg).textContent = "placebo";
+      },
+      after: ({ svg, xs, ys }) => { for (const [, t, y, sd] of MEASURED) point(svg, xs, ys, t, y, sd, 0, true); },
+    });
+  }
+  // day-21 AUC over one dosing interval, numerically
+  let auc21 = 0; { const n = 4800, a0 = 480; for (let i = 0; i < n; i++) { const a = a0 + (24 * i) / n, b = a0 + (24 * (i + 1)) / n; auc21 += ((packFn(a) + packFn(b)) / 2) * (b - a); } }
+  let peak = (d) => { let best = 0; for (let t = d * 24; t <= d * 24 + 6; t += 0.01) best = Math.max(best, packFn(t)); return best; };
+  const rows2 = [
+    ["Day 1 peak", 2.75, 0.88, peak(0)],
+    ["Day 6 peak", 4.52, 1.79, peak(5)],
+    ["Day 21 peak", 6.0, 2.65, peak(20)],
+    ["Low before next pill, day 21", 1.9, 1.0, packFn(21 * 24)],
+    ["Day 21 AUC over 24 h, ng·h/mL", 68.3, 32.5, auc21],
+  ];
+  document.getElementById("tbl-pack").innerHTML = rows2.map(([name, mean, sd, model]) =>
+    `<tr><td>${name}</td><td>${mean} ± ${sd}</td><td class="${within(model, mean, sd) ? "" : "miss"}">${fmt(model)}${within(model, mean, sd) ? "" : " ✕"}</td><td>×${(mean / model).toFixed(2)}</td></tr>`
+  ).join("") + `<tr><td colspan="4" class="note">Concentrations in ng/mL. ✕ marks a model value outside the measured mean ± SD.</td></tr>`;
+
+  // ---------- chart 3: late pill ----------
+  const DUE = 14 * 24; // the day-15 pill
+  const onTime = PACK;
+  const usualLow = multi(MODELS.two, onTime, DUE);
+  let late = 24; // hours, or "skip2"
+  let pctMode = true; // plain view: levels as % of the usual low
+  const scenarioDoses = () => {
+    // CDC: pills 15 and 16 missed; at +48 h take the most recent missed pill plus pill 17 (two pills that day).
+    if (late === "skip2") return onTime.filter((d) => d !== DUE && d !== DUE + 24).concat([DUE + 48]).sort((a, b) => a - b);
+    return onTime.map((d) => (d === DUE ? d + late : d)).sort((a, b) => a - b);
+  };
+  const lateLabel = () => (late === "skip2" ? "2 pills missed" : late === 0 ? "On time" : `${late} h late`);
+  const lateEl = document.getElementById("chart-late");
+  function drawLate() {
+    const doses = scenarioDoses();
+    const k = pctMode ? 100 / usualLow : 1; // scale to % of usual low in plain view
+    const f = (x) => k * multi(MODELS.two, doses, DUE + x);
+    const g = (x) => k * multi(MODELS.two, onTime, DUE + x);
+    const low = k * usualLow;
+    const unitTxt = pctMode ? "% of usual low" : "ng/mL";
+    const show = (v) => (pctMode ? Math.round(v) + "%" : fmt(v));
+    lineChart(lateEl, {
+      linear: pctMode, yTitle: pctMode ? "Level, % of usual daily low" : undefined,
+      tickFmt: pctMode ? (v) => v + "%" : undefined, vFmt: show,
+      aria: `Levonorgestrel over several days with the day-15 pill ${lateLabel().toLowerCase()}, compared with all pills on time`,
+      xMin: -48, xMax: 120, xTicks: [-48, -24, 0, 24, 48, 72, 96, 120], xFmt: (x) => (x > 0 ? "+" : "") + x + " h",
+      xLabel: "Hours since the day-15 pill was due",
+      yLog: [0.3, 10], yLin: pctMode ? [0, 800] : [0, 7], yLinTicks: pctMode ? [0, 200, 400, 600, 800] : [0, 1, 2, 3, 4, 5, 6, 7], samples: 1400,
+      series: [
+        { label: lateLabel(), cls: "s1", color: "--series-1", fn: f },
+        { label: "On time", cls: "s0", color: "--baseline", fn: g },
+      ],
+      tipHead: (x) => `${x >= 0 ? "+" : ""}${x.toFixed(1)} h · ${unitTxt}`,
+      before: ({ svg, xs, m, ph }) => {
+        let start = null; const step = 0.1;
+        for (let x = -48; x <= 120 + step; x += step) {
+          const below = x <= 120 && f(x) < low * 0.999;
+          if (below && start === null) start = x;
+          if (!below && start !== null) { el("rect", { x: xs(start), y: m.t, width: Math.max(1, xs(x) - xs(start)), height: ph, class: "shade" }, svg); start = null; }
+        }
+        for (const d of new Set(doses)) {
+          const x = d - DUE;
+          if (x < -48 || x > 120) continue;
+          const isLate = (late !== "skip2" && d === DUE + late) || (late === "skip2" && d === DUE + 48);
+          el("circle", { cx: xs(x), cy: m.t + ph - 6, r: isLate ? 4.5 : 3.5, class: isLate ? "pill-late" : "pill-mark" }, svg);
+        }
+      },
+      after: ({ svg, xs, ys, m, pw }) => {
+        const y = ys(low);
+        el("line", { x1: m.l, x2: m.l + pw, y1: y, y2: y, class: "ref" }, svg);
+        el("text", { x: m.l + pw - 4, y: y - 6, "text-anchor": "end", class: "ref-label" }, svg).textContent = pctMode ? "usual daily low = 100%" : `usual low, ${fmt(usualLow)}`;
+      },
+    });
+    let min = Infinity, tMin = 0, below = 0, belowOnTime = 0; const step = 0.02;
+    for (let x = 0; x <= 120; x += step) {
+      const v = f(x), b = g(x);
+      if (v < min) { min = v; tMin = x; }
+      if (v < low * 0.999) below += step;
+      if (b < low * 0.999) belowOnTime += step;
+    }
+    const extra = Math.max(0, below - belowOnTime);
+    const pct = Math.max(0, (1 - min / low) * 100);
+    document.getElementById("st-low").innerHTML = pctMode ? `100% <small>(${fmt(usualLow)} ng/mL)</small>` : `${fmt(usualLow)} <small>ng/mL</small>`;
+    document.getElementById("st-min").innerHTML = pctMode ? `${Math.round(100 - pct)}% <small>of usual</small>` : `${fmt(min)} <small>ng/mL</small>`;
+    document.getElementById("st-min-d").textContent = pct > 0.5 ? `${pct.toFixed(0)}% below the usual low, at +${tMin.toFixed(1)} h` : "no lower than usual";
+    document.getElementById("st-time").innerHTML = `${fmtH(extra)} <small>h</small>`;
+    document.getElementById("legend-late-label").textContent = lateLabel();
+    const s = document.getElementById("summary");
+    if (pct <= 0.5) s.innerHTML = "With every pill on time, levels never drop below the usual low. They keep rising slowly through the pack.";
+    else s.innerHTML = `${late === "skip2" ? "Missing <strong>two pills</strong> (one missed pill and the next pill taken together at +48 h)" : `Taking the pill <strong>${late} h late</strong>`}, levels fall to <strong>${pctMode ? Math.round(100 - pct) + "% of their usual low" : fmt(min) + " ng/mL"}</strong>${pctMode ? "" : `, <strong>${pct.toFixed(0)}% below</strong> the usual low,`} and stay below the usual low for <strong>${fmtH(extra)} extra hours</strong>.`;
+    document.getElementById("late-val").textContent = late === "skip2" ? "2 missed" : late === 0 ? "on time" : `${late} h late`;
+    document.querySelectorAll("[data-late]").forEach((b) => b.setAttribute("aria-pressed", String(String(late) === b.dataset.late)));
+  }
+
+  const slider = document.getElementById("late");
+  slider.addEventListener("input", () => { late = Number(slider.value); drawLate(); });
+  document.querySelectorAll("[data-late]").forEach((b) => b.addEventListener("click", () => {
+    late = b.dataset.late === "skip2" ? "skip2" : Number(b.dataset.late);
+    if (late !== "skip2") slider.value = late;
+    drawLate();
+  }));
+  const setUnit = (pct) => {
+    pctMode = pct;
+    document.getElementById("unit-pct").setAttribute("aria-pressed", String(pct));
+    document.getElementById("unit-ng").setAttribute("aria-pressed", String(!pct));
+    drawLate();
+  };
+  document.getElementById("unit-pct").addEventListener("click", () => setUnit(true));
+  document.getElementById("unit-ng").addEventListener("click", () => setUnit(false));
+  const redraw = () => { drawSingle(); drawPack(); drawLate(); };
+  const setScale = (log) => {
+    logScale = log;
+    document.getElementById("scale-log").setAttribute("aria-pressed", String(log));
+    document.getElementById("scale-lin").setAttribute("aria-pressed", String(!log));
+    redraw();
+  };
+  document.getElementById("scale-log").addEventListener("click", () => setScale(true));
+  document.getElementById("scale-lin").addEventListener("click", () => setScale(false));
+  let raf = 0;
+  new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(redraw); }).observe(document.querySelector("main"));
+  redraw();
+})();
+</script>
