@@ -14,7 +14,11 @@
 
 ## The question
 
-The progestin-only "minipill" has to be taken within a 3-hour window: CDC guidance counts a minipill taken more than 3 hours late as missed. A single combined pill, on the other hand, can be up to 48 hours late without needing backup contraception.
+The progestin-only "minipill" has to be taken within a 3-hour window: CDC guidance counts a minipill taken more than 3 hours late as missed [1]. A single combined pill, on the other hand, can be up to 48 hours late without needing backup contraception; only at 48 hours or more (two or more pills missed) does the CDC advise condoms or abstinence until 7 days of pills have been taken in a row [2].
+
+> **[1]** CDC. *Recommended Actions After Late or Missed Progestin-Only Pills* (CS39620-D). U.S. Selected Practice Recommendations for Contraceptive Use, 2024. [`sources/cdc_missedpill_guidance.pdf`](sources/cdc_missedpill_guidance.pdf) ([copy hosted by UCSF Beyond the Pill](https://beyondthepill.ucsf.edu/wp-content/uploads/2025/01/recommended-action-late-missed-progestin-508.pdf))
+>
+> **[2]** CDC. *Recommended Actions After Late or Missed Combined Oral Contraceptives* (CS39620-C). U.S. Selected Practice Recommendations for Contraceptive Use, 2024. [doi:10.15620/cdc/251909](https://doi.org/10.15620/cdc/251909) · [`sources/cdc_missedpill_combined.pdf`](sources/cdc_missedpill_combined.pdf)
 
 **Why the difference?** This project tests how much of it comes down to how fast each hormone leaves the body (its half-life), and how much comes from the two hormones in the combined pill affecting each other.
 
@@ -152,7 +156,8 @@ Full tables, with sources for every value, are in [`sources/`](sources/).
 - [Levonorgestrel/ethinyl estradiol prescribing information (Alesse)](https://www.drugs.com/pro/alesse.html)
 - [Levonorgestrel/ethinyl estradiol prescribing information (Seasonale)](https://www.drugs.com/pro/seasonale.html)
 - [Levonorgestrel/ethinyl estradiol package insert (Levette)](https://www.sahpra.org.za/wp-content/uploads/2020/08/Levette_PI_Actor-Pharma_MCC-FormatJuly-2015.pdf)
-- [CDC recommended actions after late or missed pills (UCSF summary)](https://beyondthepill.ucsf.edu/wp-content/uploads/2025/01/recommended-action-late-missed-progestin-508.pdf)
+- Centers for Disease Control and Prevention. (2024). [Recommended actions after late or missed progestin-only pills](https://beyondthepill.ucsf.edu/wp-content/uploads/2025/01/recommended-action-late-missed-progestin-508.pdf) (CS39620-D). *U.S. Selected Practice Recommendations for Contraceptive Use.* (Copy hosted by UCSF Beyond the Pill.) The "<48 h / ≥48 h" columns apply to drospirenone pills only.
+- Centers for Disease Control and Prevention. (2024). [Recommended actions after late or missed combined oral contraceptives](https://doi.org/10.15620/cdc/251909) (CS39620-C). *U.S. Selected Practice Recommendations for Contraceptive Use.* https://www.cdc.gov/contraception/hcp/usspr/
 - Edelman, A. B., et al. (2009). [Impact of obesity on oral contraceptive pharmacokinetics and hypothalamic-pituitary-ovarian activity](https://pmc.ncbi.nlm.nih.gov/articles/PMC2736633). *Contraception*, 80(2), 119–127.
 
 ## About
