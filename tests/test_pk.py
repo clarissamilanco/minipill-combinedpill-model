@@ -2,11 +2,12 @@ import numpy as np
 import pytest
 
 from minipill.params import (
-    NORETHINDRONE, NORETHINDRONE_1C, NORETHINDRONE_DOSE_MG, NORETHINDRONE_LABEL,
+    ALESSE_DAY1, ALESSE_STEADY_STATE, ALESSE_TABLE_I, LEVONORGESTREL, LEVONORGESTREL_1C,
+    LEVONORGESTREL_DOSE_MG, NORETHINDRONE, NORETHINDRONE_1C, NORETHINDRONE_DOSE_MG, NORETHINDRONE_LABEL,
 )
 from minipill.pk import (
-    Drug, accumulation_ratio, bateman, exact_single_dose, ka_from_tmax, mg_per_l_to_pg_per_ml,
-    simulate, tmax,
+    Drug, accumulation_ratio, bateman, exact_single_dose, ka_from_tmax, mg_per_l_to_ng_per_ml,
+    mg_per_l_to_pg_per_ml, simulate, tmax,
 )
 
 DAY = 24.0
@@ -15,8 +16,9 @@ SLOW = Drug.one_compartment(name="slow", half_life_h=30.0, ka=ka_from_tmax(1.5, 
 # Generic two-compartment drug with well-separated rates.
 TWO_COMP = Drug(name="two-comp", ka=2.0, F=0.8, V_L=20.0, k10=0.3, k12=0.6, k21=0.1)
 
-ONE_COMP_DRUGS = [NORETHINDRONE_1C, SLOW]
-ALL_DRUGS = [NORETHINDRONE, NORETHINDRONE_1C, SLOW, TWO_COMP]
+ONE_COMP_DRUGS = [NORETHINDRONE_1C, LEVONORGESTREL_1C, SLOW]
+TWO_COMP_DRUGS = [NORETHINDRONE, LEVONORGESTREL, TWO_COMP]
+ALL_DRUGS = ONE_COMP_DRUGS + TWO_COMP_DRUGS
 
 
 def ids(d):
@@ -39,7 +41,7 @@ def test_exact_solution_matches_bateman(drug):
     np.testing.assert_allclose(exact_single_dose(drug, 1.0, t), bateman(drug, 1.0, t), rtol=1e-9, atol=1e-15)
 
 
-@pytest.mark.parametrize("drug", [NORETHINDRONE, TWO_COMP], ids=ids)
+@pytest.mark.parametrize("drug", TWO_COMP_DRUGS, ids=ids)
 def test_two_compartment_single_dose_matches_exact(drug):
     t = np.linspace(0, 3 * DAY, 2001)
     sim = simulate(drug, [0.0], 1.0, t)
@@ -89,7 +91,7 @@ def test_steady_state_accumulation(drug, expected):
 
 # --- Two-compartment rates ------------------------------------------------------
 
-@pytest.mark.parametrize("drug", [NORETHINDRONE, TWO_COMP], ids=ids)
+@pytest.mark.parametrize("drug", TWO_COMP_DRUGS, ids=ids)
 def test_disposition_rates(drug):
     alpha, beta = drug.disposition_rates
     assert alpha > beta > 0
@@ -97,7 +99,7 @@ def test_disposition_rates(drug):
     assert alpha * beta == pytest.approx(drug.k10 * drug.k21)
 
 
-@pytest.mark.parametrize("drug", [NORETHINDRONE, TWO_COMP], ids=ids)
+@pytest.mark.parametrize("drug", TWO_COMP_DRUGS, ids=ids)
 def test_terminal_slope_matches_beta(drug):
     t = np.array([60.0, 72.0])
     c = simulate(drug, [0], 1.0, np.linspace(0, 72, 7201)).conc[[6000, 7200]]
@@ -153,3 +155,45 @@ def test_norethindrone_peak_to_24h_drop(drug, drop):
     """The check that motivated the second compartment: label shows a ~37-fold drop."""
     _, c = _norethindrone_single_dose(drug)
     assert c.max() / c[-1] == pytest.approx(drop, rel=0.05)
+
+
+# --- Levonorgestrel vs. Alesse (no SHBG effect yet) ------------------------------
+
+def _levonorgestrel_single_dose(drug, hours=DAY):
+    t = np.linspace(0, hours, int(hours * 1000) + 1)
+    c = mg_per_l_to_ng_per_ml(simulate(drug, [0], LEVONORGESTREL_DOSE_MG, t).conc)
+    return t, c
+
+
+def test_levonorgestrel_matches_alesse_day1():
+    t, c = _levonorgestrel_single_dose(LEVONORGESTREL)
+    label = ALESSE_DAY1
+    assert t[np.argmax(c)] == pytest.approx(label["tmax_h"], abs=0.05)
+    assert c.max() == pytest.approx(label["cmax_ng_ml"], rel=0.02)
+    auc = mg_per_l_to_ng_per_ml(LEVONORGESTREL.F * LEVONORGESTREL_DOSE_MG / LEVONORGESTREL.clearance_L_per_h)
+    assert auc == pytest.approx(label["auc_ng_h_ml"], rel=0.02)
+    assert LEVONORGESTREL.terminal_half_life_h == pytest.approx(label["half_life_h"], rel=0.02)
+
+
+def test_levonorgestrel_one_compartment_underpredicts_peak():
+    """Same failure as norethindrone: the label's CL/F and Vz/F give a peak ~4x too low."""
+    t, c = _levonorgestrel_single_dose(LEVONORGESTREL_1C)
+    assert t[np.argmax(c)] == pytest.approx(ALESSE_DAY1["tmax_h"], abs=0.01)
+    assert c.max() == pytest.approx(0.69, abs=0.01)
+    assert ALESSE_DAY1["cmax_ng_ml"] / c.max() == pytest.approx(4.0, abs=0.1)
+
+
+def test_without_shbg_day21_auc_is_about_half_of_alesse():
+    """Behavior the science requires: without SHBG, a linear model's day-21 AUC over one
+    dosing interval equals the day-1 AUC (35.2), but Alesse measured 68.3 ng*h/mL.
+    The missing factor (~1.9) is the SHBG effect, matching the CL/F fall 53.7 -> 28.4."""
+    t = np.linspace(20 * DAY, 21 * DAY, 2401)
+    sim = simulate(LEVONORGESTREL, np.arange(21) * DAY, LEVONORGESTREL_DOSE_MG, np.concatenate([[0.0], t]))
+    c = mg_per_l_to_ng_per_ml(sim.conc[1:])
+    auc_day21 = np.trapezoid(c, t)
+    assert auc_day21 == pytest.approx(ALESSE_DAY1["auc_ng_h_ml"], rel=0.02)
+    label_auc21, label_cl1, label_cl21 = ALESSE_TABLE_I[21][0], ALESSE_TABLE_I[1][1], ALESSE_TABLE_I[21][1]
+    assert label_auc21 / auc_day21 == pytest.approx(label_cl1 / label_cl21, rel=0.05)
+    # Trough before the next pill: ~0.84 ng/mL without SHBG vs. 1.9 ng/mL measured.
+    assert c[-1] == pytest.approx(0.84, abs=0.02)
+    assert c[-1] < 0.5 * ALESSE_STEADY_STATE["cmin_ng_ml"]

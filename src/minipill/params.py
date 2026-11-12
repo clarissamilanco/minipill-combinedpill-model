@@ -1,6 +1,6 @@
 """Drug parameters, with sources. See sources/Model Parameters .pdf for the full table."""
 
-from minipill.pk import Drug, ka_from_tmax
+from minipill.pk import LN2, Drug, ka_from_tmax
 
 # Assumed body weight to turn the label's L/kg volume into litres. Not from a source.
 BODY_WEIGHT_KG = 60.0
@@ -49,4 +49,51 @@ NORETHINDRONE_1C = Drug.one_compartment(
     ka=ka_from_tmax(1.2, 7.7),  # ESTIMATED: chosen so Tmax = 1.2 h (label); ≈ 3.0 /h
     F=0.65,  # norethindrone label
     V_L=4.0 * BODY_WEIGHT_KG,  # norethindrone label, ≈ 4 L/kg
+)
+
+# --- Levonorgestrel (combined pill, Alesse 0.10 mg) -------------------------
+LEVONORGESTREL_DOSE_MG = 0.10  # 21 active days, then 7 placebo days
+
+# Alesse label, Table I (mean of 22 women). Day 1 is a single dose, before
+# ethinyl estradiol has raised SHBG; days 6 and 21 include the SHBG effect.
+ALESSE_DAY1 = {
+    "cmax_ng_ml": 2.75,  # ± 0.88
+    "tmax_h": 1.6,  # ± 0.9
+    "auc_ng_h_ml": 35.2,  # ± 12.8 (the AUC behind CL/F, so AUC to infinity)
+    # ln 2 · (Vz/F) / (CL/F) = ln 2 · 2.66 L/kg / 0.0537 L/h/kg; body weight cancels.
+    "half_life_h": 34.3,
+}
+ALESSE_TABLE_I = {  # day: (AUC ng·h/mL, CL/F mL/h/kg, SHBG nmol/L)
+    1: (35.2, 53.7, 57),
+    6: (46.0, 40.8, 81),
+    21: (68.3, 28.4, 93),  # day 21 AUC is over one 24 h dosing interval
+}
+ALESSE_STEADY_STATE = {"cmax_ng_ml": 6.0, "cmin_ng_ml": 1.9}  # from day 19 on
+
+# Two-compartment model WITHOUT the SHBG effect (the one to use for now).
+# F is from the label (≈ 100%). ka is ASSUMED: the day-1 data can't fix it; any
+# ka from ~0.4 to 1.2 /h fits exactly and gives a 24 h level within ±5% and the
+# same late-pill drop (run scripts/fit_levonorgestrel.py --profile).
+# The other four are FITTED by scripts/fit_levonorgestrel.py to Alesse day 1
+# (peak, time to peak, AUC, terminal half-life); not measured.
+LEVONORGESTREL = Drug(
+    name="levonorgestrel",
+    ka=0.8,  # 1/h, assumed
+    F=1.0,  # Alesse label
+    V_L=16.7,  # L, central volume, fitted
+    k10=0.170,  # 1/h, fitted
+    k12=0.339,  # 1/h, fitted
+    k21=0.066,  # 1/h, fitted
+)
+
+# One-compartment model from the label's CL/F and Vz/F, kept for comparison:
+# like norethindrone, it underpredicts the day-1 peak about 4-fold.
+_LNG_HALF_LIFE_H = ALESSE_DAY1["half_life_h"]
+_LNG_CL_L_PER_H = LEVONORGESTREL_DOSE_MG * 1e3 / ALESSE_DAY1["auc_ng_h_ml"]  # 2.84 L/h
+LEVONORGESTREL_1C = Drug.one_compartment(
+    name="levonorgestrel (1 compartment)",
+    half_life_h=_LNG_HALF_LIFE_H,
+    ka=ka_from_tmax(ALESSE_DAY1["tmax_h"], _LNG_HALF_LIFE_H),  # ESTIMATED so Tmax = 1.6 h
+    F=1.0,
+    V_L=_LNG_CL_L_PER_H * _LNG_HALF_LIFE_H / LN2,  # = Vz ≈ 141 L
 )

@@ -63,6 +63,8 @@ $$\frac{dA_1}{dt} = F \, k_a \, G - (k_{10} + k_{12}) A_1 + k_{21} A_2, \qquad \
 
 After a dose, levels first fall quickly as drug moves into the tissues (half-life ≈ 0.8 h), then slowly as it is eliminated (half-life ≈ 7.8 h). The five rates and volume are **fitted** to the label's single-dose values (time to peak, peak, average and 24-hour levels, half-life) by `scripts/fit_norethindrone.py`, not measured. The fit can't separate absorption from the fast tissue phase, so those two rates individually aren't well determined; the curve itself is.
 
+**Levonorgestrel (no SHBG yet).** Levonorgestrel uses the same two-compartment model, fitted by `scripts/fit_levonorgestrel.py` to **day 1** of the Alesse study: a single dose, before the estrogen has raised SHBG. The four day-1 values (peak, time to peak, AUC, half-life) can't fix all five rates, so the absorption rate is **assumed** (0.8 /h). Any value from 0.4 to 1.2 /h fits exactly and gives nearly the same 24-hour level and late-pill drop (`--profile` prints the table).
+
 **Planned additions:**
 
 - **The estrogen–SHBG effect:** ethinyl estradiol slowly raises SHBG over the cycle, and higher SHBG slows levonorgestrel clearance. The strength and speed of this effect aren't reported directly, so I calibrate them to match published data and say so clearly.
@@ -75,8 +77,9 @@ After a dose, levels first fall quickly as drug moves into the tissues (half-lif
 | Mass balance | No drug appears or disappears | Absorbed + eliminated + remaining = total dose | ✅ Passing |
 | Steady-state accumulation | Repeated daily dosing | 1 / (1 − e^(−kτ)): ≈ 1.14 for norethindrone, ≈ 2.35 for levonorgestrel (30 h half-life) | ✅ Passing |
 | Norethindrone single dose | Published label values | Peak ≈ 4,800 pg/mL near 1.2 h; ≈ 130 pg/mL at 24 h | ❌ One compartment (7.6-fold drop vs. 37-fold) · ✅ Two compartments (all label values within 5%) |
-| Combined pill steady state | Published label values (0.10 mg levonorgestrel) | Steady state from day 19; peak ≈ 6.0 ng/mL, low ≈ 1.9 ng/mL | ☐ Planned |
-| SHBG effect | A behavior the science requires | Without SHBG, the model underpredicts levonorgestrel's 3- to 4-fold rise; with it, the gap closes | ☐ Planned |
+| Levonorgestrel single dose | Alesse day 1 (0.10 mg, before SHBG rises) | Peak 2.75 ng/mL at 1.6 h; AUC 35.2 ng·h/mL; half-life 34.3 h | ❌ One compartment (peak 0.69, 4-fold too low) · ✅ Two compartments (all four within 2%) |
+| Combined pill steady state | Published label values (0.10 mg levonorgestrel) | Steady state from day 19; peak ≈ 6.0 ng/mL, low ≈ 1.9 ng/mL | ☐ Planned (needs SHBG) |
+| SHBG effect | A behavior the science requires | Without SHBG, the model underpredicts levonorgestrel's ~2-fold rise in AUC from day 1 to day 21; with it, the gap closes | ✅ Without SHBG: day-21 AUC 35 vs. 68 ng·h/mL measured · ☐ With SHBG |
 
 As expected, the one-compartment model **fails** the norethindrone 24-hour check: the measured drop is about 37-fold in 24 hours, much steeper than the 7.6-fold an 8-hour half-life predicts. A second compartment fixes it: the steep early drop is drug moving into the tissues, not leaving the body.
 
@@ -89,6 +92,18 @@ As expected, the one-compartment model **fails** the norethindrone 24-hour check
 | Half-life | 7.7 ± 0.5 h | 7.7 h (input) | 7.8 h |
 
 The fitted model implies a clearance of about 230 L/day and a volume of about 1 L/kg, lower than the label's "about 600 L/day" and "about 4 L/kg". Those label figures come from separate studies and don't match the label's own concentration data, so I fit to the concentrations.
+
+Levonorgestrel shows the same pattern. With the Alesse label's own clearance and volume, one compartment puts the day-1 peak at 0.69 ng/mL, 4 times lower than measured, so it also gets a second compartment.
+
+| Levonorgestrel, Alesse day 1 (0.10 mg) | Label | One compartment | Two compartments |
+| --- | --- | --- | --- |
+| Time to peak | 1.6 ± 0.9 h | 1.6 h | 1.6 h |
+| Peak | 2.75 ± 0.88 ng/mL | 0.69 ng/mL | 2.75 ng/mL |
+| AUC | 35.2 ± 12.8 ng·h/mL | 35.2 (input) | 35.2 ng·h/mL |
+| Half-life | 34.3 h (from CL/F and Vz/F) | 34.3 h (input) | 34.3 h |
+| Level at 24 h | not reported | 0.44 ng/mL | 0.32 ng/mL |
+
+**What's missing without SHBG.** Taken daily for 21 days, the model without SHBG predicts a day-21 AUC of 35 ng·h/mL and a low point of 0.84 ng/mL just before the next pill. Alesse measured 68 ng·h/mL and 1.9 ng/mL. The day-21 AUC gap (×1.9) matches the label's fall in clearance from day 1 to day 21 (53.7 → 28.4 mL/h/kg, ×1.9), which is the SHBG effect the next step has to add.
 
 ## Running it
 
@@ -112,6 +127,7 @@ pytest
 
 ```
 python scripts/fit_norethindrone.py
+python scripts/fit_levonorgestrel.py             # add --profile to compare absorption rates
 ```
 
 ## Repository layout
@@ -134,7 +150,7 @@ Full tables, with sources for every value, are in [`sources/`](sources/).
 | Hormone | Half-life | Notes |
 | --- | --- | --- |
 | Norethindrone (minipill) | 7.7 ± 0.5 h | Peak ≈ 1.2 h after a dose; taken daily with no break |
-| Levonorgestrel (combined) | ≈ 30 h single dose; 36 ± 13 h at steady state | Binds SHBG; rises 3- to 4-fold over the cycle |
+| Levonorgestrel (combined) | ≈ 30 h single dose (Seasonale); 34 h on day 1 and 36 ± 13 h at steady state (Alesse) | Binds SHBG; rises about 2-fold over the cycle with Alesse (Levette label says 3- to 4-fold) |
 | Ethinyl estradiol (combined) | ≈ 15 h single dose; 18 ± 4.7 h at steady state | Raises SHBG ≈ 1.7-fold; broken down partly by CYP3A4 |
 
 ## Assumptions and limitations
