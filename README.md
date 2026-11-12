@@ -117,7 +117,7 @@ sources/    Drug labels and papers the parameters come from
 src/        The model and simulation code
 tests/      Checks against exact solutions and published values
 scripts/    Parameter fitting
-app/        The web app
+app/        The web app (norethindrone_preview.html: early interactive charts)
 journal/    Claude Code session logs (my build journal)
 ```
 
