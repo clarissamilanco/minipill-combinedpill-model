@@ -62,10 +62,10 @@ Each pill taken adds one dose to G at the time it's taken.
 
 | Check | What it tests | Expected result | Status |
 | --- | --- | --- | --- |
-| Exact single-dose solution | The numerical simulation | Matches the Bateman function | ☐ Planned |
-| Mass balance | No drug appears or disappears | Absorbed + eliminated + remaining = total dose | ☐ Planned |
-| Steady-state accumulation | Repeated daily dosing | 1 / (1 − e^(−kτ)): ≈ 1.14 for norethindrone, ≈ 2.4 for levonorgestrel | ☐ Planned |
-| Norethindrone single dose | Published label values | Peak ≈ 4,800 pg/mL near 1.2 h; ≈ 130 pg/mL at 24 h | ☐ Planned |
+| Exact single-dose solution | The numerical simulation | Matches the Bateman function | ✅ Passing |
+| Mass balance | No drug appears or disappears | Absorbed + eliminated + remaining = total dose | ✅ Passing |
+| Steady-state accumulation | Repeated daily dosing | 1 / (1 − e^(−kτ)): ≈ 1.14 for norethindrone, ≈ 2.35 for levonorgestrel (30 h half-life) | ✅ Passing |
+| Norethindrone single dose | Published label values | Peak ≈ 4,800 pg/mL near 1.2 h; ≈ 130 pg/mL at 24 h | ❌ Fails as expected (one compartment) |
 | Combined pill steady state | Published label values (0.10 mg levonorgestrel) | Steady state from day 19; peak ≈ 6.0 ng/mL, low ≈ 1.9 ng/mL | ☐ Planned |
 | SHBG effect | A behavior the science requires | Without SHBG, the model underpredicts levonorgestrel's 3- to 4-fold rise; with it, the gap closes | ☐ Planned |
 
@@ -75,9 +75,21 @@ I expect the one-compartment model to **fail** the norethindrone 24-hour check: 
 
 **Online:** Use the live app (link above). Nothing to install.
 
-**Locally:** _Instructions coming once the first version is built._
+**Locally** (Python 3.13+):
 
-**Running the tests:** _Instructions coming._
+```
+py -m venv .venv
+.venv\Scripts\activate        # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Running the tests:**
+
+```
+pytest
+```
+
+The norethindrone 24-hour check is marked as an expected failure (`xfail`) until the second compartment is added.
 
 ## Repository layout
 

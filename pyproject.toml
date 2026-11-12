@@ -1,0 +1,9 @@
+[project]
+name = "minipill-model"
+version = "0.1.0"
+description = "Pharmacokinetic model of progestin-only and combined birth control pills"
+requires-python = ">=3.13"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
