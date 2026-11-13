@@ -1,6 +1,6 @@
 """Drug parameters, with sources. See sources/Model Parameters .pdf for the full table."""
 
-from minipill.pk import LN2, Drug, ka_from_tmax
+from minipill.pk import LN2, Drug, SHBGEffect, ka_from_tmax
 
 # Assumed body weight to turn the label's L/kg volume into litres. Not from a source.
 BODY_WEIGHT_KG = 60.0
@@ -69,8 +69,10 @@ ALESSE_TABLE_I = {  # day: (AUC ng·h/mL, CL/F mL/h/kg, SHBG nmol/L)
     21: (68.3, 28.4, 93),  # day 21 AUC is over one 24 h dosing interval
 }
 ALESSE_STEADY_STATE = {"cmax_ng_ml": 6.0, "cmin_ng_ml": 1.9}  # from day 19 on
+ALESSE_SHBG_NMOL_L = {1: 57, 6: 81, 21: 93}  # ± 18, 25, 40
 
-# Two-compartment model WITHOUT the SHBG effect (the one to use for now).
+# Two-compartment model. Used alone, it has NO SHBG effect; pass SHBG below to
+# simulate() for the combined pill over a pack.
 # F is from the label (≈ 100%). ka is ASSUMED: the day-1 data can't fix it; any
 # ka from ~0.4 to 1.2 /h fits exactly and gives a 24 h level within ±5% and the
 # same late-pill drop (run scripts/fit_levonorgestrel.py --profile).
@@ -96,4 +98,22 @@ LEVONORGESTREL_1C = Drug.one_compartment(
     ka=ka_from_tmax(ALESSE_DAY1["tmax_h"], _LNG_HALF_LIFE_H),  # ESTIMATED so Tmax = 1.6 h
     F=1.0,
     V_L=_LNG_CL_L_PER_H * _LNG_HALF_LIFE_H / LN2,  # = Vz ≈ 141 L
+)
+
+# --- SHBG effect (combined pill) ----------------------------------------------
+# The pill's estrogen makes the liver produce more SHBG, a blood protein that
+# binds levonorgestrel; with more SHBG, levonorgestrel is cleared more slowly.
+# FITTED by scripts/fit_shbg.py to Alesse Table I:
+#  - SHBG curve (s0, s_max, rate) passes exactly through 57, 81, 93 nmol/L on days 1, 6, 21.
+#  - gamma fitted to the day-6 and day-21 AUCs (46.0, 68.3 ng*h/mL): model 48.0 and 66.8.
+# Checks not used in the fit: low before the next pill on day 21 is 2.04 vs. 1.9
+# ng/mL measured; the day-21 peak is 4.94 vs. 6.0 ± 2.65 (low, since the model
+# keeps the volume fixed while the label's Vz/F falls from 2.66 to 1.43 L/kg).
+# Caveat: the label's unbound data show unbound clearance also falls (2.79 -> 1.57
+# L/h/kg), so SHBG here stands for the whole estrogen effect on clearance.
+SHBG = SHBGEffect(
+    s0=57.0,  # nmol/L, Alesse day 1
+    s_max=93.5,  # nmol/L, fitted plateau
+    k_per_h=0.2143 / 24,  # 1/h, fitted; SHBG gets half-way to its plateau in 3.2 days
+    gamma=1.331,  # fitted
 )

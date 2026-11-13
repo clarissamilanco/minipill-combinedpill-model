@@ -16,10 +16,12 @@
 
 - **Each pill is a burst of hormone that the body then clears.** Levels peak an hour or two after the pill and fall until the next one.
 - **The minipill's hormone clears fast.** Half of it is gone in about 8 hours, so by the next day very little is left. A pill 3 hours late lets levels fall about 23% below their usual daily low. A skipped pill lets them fall about 88% below.
-- **The combined pill's progestin clears slowly.** Half of it is gone in about a day and a half, so each pill stacks on what's left of the last one and levels build up over the pack. In the model so far, a pill 3 hours late dips levels only about 6% below their usual low, and a full day late about 38%.
-- **The estrogen in the combined pill should widen that gap further.** It makes the body produce a protein (SHBG) that holds onto the progestin and slows its removal, so real levels build up about twice as high by week 3. That effect isn't in the model yet, so the combined-pill numbers above are preliminary.
+- **The combined pill's progestin clears slowly.** Half of it is gone in about a day and a half, so each pill stacks on what's left of the last one and levels build up over the pack.
+- **The combined pill's estrogen makes that build-up bigger.** It makes the liver produce more SHBG, a protein that holds onto the progestin and slows its removal, so levels build up about twice as high by week 3 (see [SHBG and the combined pill](#shbg-and-the-combined-pill)).
+- **So a late combined pill matters much less.** A pill 3 hours late dips its levels about 4% below their usual low (the minipill: 23%). A whole pill missed dips them about 28% (the minipill: 88%).
+- **Each pill's CDC limit lands at a similar dip.** The minipill 3 hours late dips 23%; the combined pill with one pill missed, still under CDC's 48-hour limit, dips 28%. Past 48 hours (two pills missed) it dips 49%.
 
-Interactive charts: `app/norethindrone_preview.html` and `app/levonorgestrel_preview.html` (the levonorgestrel page has a plain-language view of the late-pill chart).
+Interactive charts: `app/pill_comparison.html` puts both pills on the same charts, with a plain-language explainer of SHBG. Single-drug pages: `app/norethindrone_preview.html` and `app/levonorgestrel_preview.html` (levonorgestrel without SHBG).
 
 ## The question
 
@@ -74,9 +76,25 @@ After a dose, levels first fall quickly as drug moves into the tissues (half-lif
 
 **Levonorgestrel (no SHBG yet).** Levonorgestrel uses the same two-compartment model, fitted by `scripts/fit_levonorgestrel.py` to **day 1** of the Alesse study: a single dose, before the estrogen has raised SHBG. The four day-1 values (peak, time to peak, AUC, half-life) can't fix all five rates, so the absorption rate is **assumed** (0.8 /h). Any value from 0.4 to 1.2 /h fits exactly and gives nearly the same 24-hour level and late-pill drop (`--profile` prints the table).
 
-**Planned additions:**
+### SHBG and the combined pill
 
-- **The estrogen–SHBG effect:** ethinyl estradiol slowly raises SHBG over the cycle, and higher SHBG slows levonorgestrel clearance. The strength and speed of this effect aren't reported directly, so I calibrate them to match published data and say so clearly.
+**What SHBG is.** Sex hormone–binding globulin is a protein made by the liver that carries sex hormones in the blood. Levonorgestrel binds it strongly: about half of the levonorgestrel in blood is on SHBG (42–68%, Levette label).
+
+**How the combined pill raises it.** The pill's estrogen, ethinyl estradiol, doesn't bind SHBG itself but makes the liver produce more of it. In the Alesse study, SHBG rose from 57 to 81 to 93 nmol/L on days 1, 6 and 21.
+
+**What that does to levonorgestrel.** Over the same days, levonorgestrel's clearance fell almost by half (CL/F 53.7 → 40.8 → 28.4 mL/h/kg), so exposure on day 21 was about twice day 1's. The minipill has no estrogen, so its SHBG stays put and norethindrone never builds up this way. This is the "two hormones affecting each other" half of the project's question.
+
+```
+estrogen → liver makes more SHBG → more levonorgestrel held in blood → cleared more slowly → levels build up
+```
+
+**How the model does it.** SHBG is a sixth state. While active pills are taken (estrogen counts as "on" for 24 h after each pill), it moves toward a plateau, and in the placebo week (or after missed pills) it drifts back to baseline:
+
+$$\frac{dS}{dt} = k_S\,(S_{\text{target}} - S), \qquad k_{10}(t) = k_{10}\left(\frac{S_0}{S}\right)^{\gamma}$$
+
+`scripts/fit_shbg.py` fits the SHBG curve exactly through the three measured values (S₀ = 57, plateau 93.5 nmol/L, half-way in 3.2 days), then fits the strength γ = 1.33 to the measured AUC on days 6 and 21. The levonorgestrel parameters from day 1 stay fixed.
+
+**Limits.** The label also shows *unbound* levonorgestrel rising and its unbound clearance falling (2.79 → 1.57 L/h/kg), so the estrogen effect isn't binding alone. In the model, SHBG stands for the whole effect. The label's volume of distribution also shrinks over the cycle (Vz/F 2.66 → 1.43 L/kg), which the model doesn't include, so it underpredicts the week-3 peak.
 
 ## How I know it's right
 
@@ -87,8 +105,10 @@ After a dose, levels first fall quickly as drug moves into the tissues (half-lif
 | Steady-state accumulation | Repeated daily dosing | 1 / (1 − e^(−kτ)): ≈ 1.14 for norethindrone, ≈ 2.35 for levonorgestrel (30 h half-life) | ✅ Passing |
 | Norethindrone single dose | Published label values | Peak ≈ 4,800 pg/mL near 1.2 h; ≈ 130 pg/mL at 24 h | ❌ One compartment (7.6-fold drop vs. 37-fold) · ✅ Two compartments (all label values within 5%) |
 | Levonorgestrel single dose | Alesse day 1 (0.10 mg, before SHBG rises) | Peak 2.75 ng/mL at 1.6 h; AUC 35.2 ng·h/mL; half-life 34.3 h | ❌ One compartment (peak 0.69, 4-fold too low) · ✅ Two compartments (all four within 2%) |
-| Combined pill steady state | Published label values (0.10 mg levonorgestrel) | Steady state from day 19; peak ≈ 6.0 ng/mL, low ≈ 1.9 ng/mL | ☐ Planned (needs SHBG) |
-| SHBG effect | A behavior the science requires | Without SHBG, the model underpredicts levonorgestrel's ~2-fold rise in AUC from day 1 to day 21; with it, the gap closes | ✅ Without SHBG: day-21 AUC 35 vs. 68 ng·h/mL measured · ☐ With SHBG |
+| SHBG effect | A behavior the science requires | Without SHBG, the model underpredicts levonorgestrel's ~2-fold rise in AUC from day 1 to day 21; with it, the gap closes | ✅ Without SHBG: day-21 AUC 35 vs. 68 · ✅ With SHBG: 67 vs. 68 ng·h/mL (fitted) |
+| SHBG over the pack | Alesse SHBG on days 1, 6, 21 | 57, 81, 93 nmol/L; back toward baseline in the placebo week | ✅ Exact (fitted) |
+| Combined pill steady state | Alesse values **not used in the fit** | Low before the next pill ≈ 1.9 ng/mL; peak ≈ 6.0 ng/mL | ✅ Low 2.04 ng/mL (+7%) · ⚠️ Peak 4.94 ng/mL, within SD but low (volume kept fixed) |
+| Late pill, both pills | The project's question | Same delay hurts the minipill more | ✅ 3 h late: 23% vs. 4% below the usual low |
 
 As expected, the one-compartment model **fails** the norethindrone 24-hour check: the measured drop is about 37-fold in 24 hours, much steeper than the 7.6-fold an 8-hour half-life predicts. A second compartment fixes it: the steep early drop is drug moving into the tissues, not leaving the body.
 
@@ -112,7 +132,26 @@ Levonorgestrel shows the same pattern. With the Alesse label's own clearance and
 | Half-life | 34.3 h (from CL/F and Vz/F) | 34.3 h (input) | 34.3 h |
 | Level at 24 h | not reported | 0.44 ng/mL | 0.32 ng/mL |
 
-**What's missing without SHBG.** Taken daily for 21 days, the model without SHBG predicts a day-21 AUC of 35 ng·h/mL and a low point of 0.84 ng/mL just before the next pill. Alesse measured 68 ng·h/mL and 1.9 ng/mL. The day-21 AUC gap (×1.9) matches the label's fall in clearance from day 1 to day 21 (53.7 → 28.4 mL/h/kg, ×1.9), which is the SHBG effect the next step has to add.
+**What's missing without SHBG.** Taken daily for 21 days, the model without SHBG predicts a day-21 AUC of 35 ng·h/mL and a low point of 0.84 ng/mL just before the next pill. Alesse measured 68 ng·h/mL and 1.9 ng/mL. The day-21 AUC gap (×1.9) matches the label's fall in clearance from day 1 to day 21 (53.7 → 28.4 mL/h/kg, ×1.9), which is the SHBG effect.
+
+**With SHBG.** Fitted to the day-6 and day-21 exposure, the model matches both (48.0 vs. 46.0 and 66.8 vs. 68.3 ng·h/mL) and predicts the week-3 low before the next pill at 2.04 ng/mL, against 1.9 measured.
+
+| Alesse, 0.10 mg daily | SHBG model / label (nmol/L) | AUC over the day, model / label (ng·h/mL) | Peak, model / label (ng/mL) | Low before next pill |
+| --- | --- | --- | --- | --- |
+| Day 1 | 57 / 57 | – | 2.75 / 2.75 | – |
+| Day 6 | 81 / 81 | 48.0 / 46.0 | 4.09 / 4.52 ± 1.79 | – |
+| Day 21 | 93 / 93 | 66.8 / 68.3 | 4.94 / 6.0 ± 2.65 | 2.04 / 1.9 ± 1.0 |
+
+**Late pill, both pills.** Pills on time until day 15, then that pill late or missed (later pills on their usual time). The dip is the lowest level, as a percent below that pill's usual daily low:
+
+| Day-15 pill | Minipill (norethindrone) | Combined pill (levonorgestrel + SHBG) |
+| --- | --- | --- |
+| 3 h late | 23% | 4% |
+| 12 h late | 66% | 15% |
+| 1 pill missed | 88% | 28% |
+| 2 pills missed (48 h) | 99% | 49% |
+
+At each pill's CDC limit the dips are similar: 23% for the minipill at 3 hours, 28% for the combined pill with one pill missed (under 48 hours). This compares hormone levels only.
 
 ## Running it
 
@@ -137,6 +176,8 @@ pytest
 ```
 python scripts/fit_norethindrone.py
 python scripts/fit_levonorgestrel.py             # add --profile to compare absorption rates
+python scripts/fit_shbg.py                       # SHBG curve and strength, from Alesse Table I
+python scripts/export_comparison_data.py         # re-embed the SHBG curves in app/pill_comparison.html
 ```
 
 ## Repository layout
@@ -160,13 +201,15 @@ Full tables, with sources for every value, are in [`sources/`](sources/).
 | --- | --- | --- |
 | Norethindrone (minipill) | 7.7 ± 0.5 h | Peak ≈ 1.2 h after a dose; taken daily with no break |
 | Levonorgestrel (combined) | ≈ 30 h single dose (Seasonale); 34 h on day 1 and 36 ± 13 h at steady state (Alesse) | Binds SHBG; rises about 2-fold over the cycle with Alesse (Levette label says 3- to 4-fold) |
+| SHBG (combined pill) | Half-way to its plateau in ≈ 3.2 days (fitted) | 57 → 93.5 nmol/L with daily estrogen; slows levonorgestrel clearance as (57 / SHBG)^1.33 |
 | Ethinyl estradiol (combined) | ≈ 15 h single dose; 18 ± 4.7 h at steady state | Raises SHBG ≈ 1.7-fold; broken down partly by CYP3A4 |
 
 ## Assumptions and limitations
 
 - Hormone level is used as a stand-in for protection. In reality, the minipill also works through cervical mucus, and the model doesn't simulate ovulation itself.
 - Parameters are averages from label studies. Real people vary, and published data show that body weight can roughly double levonorgestrel's half-life.
-- The SHBG effect is calibrated to match published data, not measured directly.
+- The SHBG effect is calibrated to one study (Alesse, 22 women), not measured directly. SHBG stands for the whole estrogen effect on levonorgestrel's clearance, and the shrinking volume of distribution isn't modeled, so week-3 peaks are underpredicted.
+- Ethinyl estradiol itself isn't simulated: estrogen counts as "on" for 24 h after each active pill.
 - Drug interactions, food, and vomiting or diarrhea are not modeled (yet).
 
 ## Possible extensions

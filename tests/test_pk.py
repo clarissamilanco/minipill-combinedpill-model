@@ -2,11 +2,11 @@ import numpy as np
 import pytest
 
 from minipill.params import (
-    ALESSE_DAY1, ALESSE_STEADY_STATE, ALESSE_TABLE_I, LEVONORGESTREL, LEVONORGESTREL_1C,
+    ALESSE_DAY1, ALESSE_SHBG_NMOL_L, ALESSE_STEADY_STATE, ALESSE_TABLE_I, LEVONORGESTREL, LEVONORGESTREL_1C, SHBG,
     LEVONORGESTREL_DOSE_MG, NORETHINDRONE, NORETHINDRONE_1C, NORETHINDRONE_DOSE_MG, NORETHINDRONE_LABEL,
 )
 from minipill.pk import (
-    Drug, accumulation_ratio, bateman, exact_single_dose, ka_from_tmax, mg_per_l_to_ng_per_ml,
+    Drug, SHBGEffect, accumulation_ratio, bateman, exact_single_dose, ka_from_tmax, mg_per_l_to_ng_per_ml,
     mg_per_l_to_pg_per_ml, simulate, tmax,
 )
 
@@ -197,3 +197,84 @@ def test_without_shbg_day21_auc_is_about_half_of_alesse():
     # Trough before the next pill: ~0.84 ng/mL without SHBG vs. 1.9 ng/mL measured.
     assert c[-1] == pytest.approx(0.84, abs=0.02)
     assert c[-1] < 0.5 * ALESSE_STEADY_STATE["cmin_ng_ml"]
+
+
+# --- SHBG effect (combined pill) -------------------------------------------------
+
+PACK_T = np.linspace(0, 28 * DAY, 28 * 120 + 1)  # every 12 min over one pack
+
+
+@pytest.fixture(scope="module")
+def pack_with_shbg():
+    return simulate(LEVONORGESTREL, np.arange(21) * DAY, LEVONORGESTREL_DOSE_MG, PACK_T, shbg=SHBG)
+
+
+def _at(t):
+    return int(np.searchsorted(PACK_T, t))
+
+
+def _day(sim, d):
+    i, j = _at((d - 1) * DAY), _at(d * DAY)
+    c = mg_per_l_to_ng_per_ml(sim.conc[i:j + 1])
+    return np.trapezoid(c, PACK_T[i:j + 1]), c.max(), c[-1]
+
+
+def test_shbg_with_zero_strength_changes_nothing():
+    t = np.linspace(0, 5 * DAY, 1201)
+    doses = np.arange(5) * DAY
+    plain = simulate(LEVONORGESTREL, doses, LEVONORGESTREL_DOSE_MG, t).conc
+    off = SHBGEffect(SHBG.s0, SHBG.s_max, SHBG.k_per_h, gamma=0.0)
+    np.testing.assert_allclose(simulate(LEVONORGESTREL, doses, LEVONORGESTREL_DOSE_MG, t, shbg=off).conc,
+                               plain, rtol=1e-7, atol=1e-12)
+
+
+def test_shbg_follows_alesse(pack_with_shbg):
+    S = pack_with_shbg.shbg
+    for day, label in ALESSE_SHBG_NMOL_L.items():
+        assert S[_at((day - 1) * DAY)] == pytest.approx(label, abs=0.5)
+
+
+def test_shbg_falls_back_in_placebo_week(pack_with_shbg):
+    S = pack_with_shbg.shbg
+    assert SHBG.s0 < S[-1] < S[_at(21 * DAY)]
+
+
+def test_mass_balance_with_shbg(pack_with_shbg):
+    sim = pack_with_shbg
+    total = sim.gut + sim.central + sim.peripheral + sim.eliminated + sim.first_pass
+    np.testing.assert_allclose(total, sim.dosed, rtol=1e-8, atol=1e-12)
+
+
+def test_shbg_matches_alesse_auc(pack_with_shbg):
+    """Fitted targets: AUC over one dosing interval on days 6 and 21."""
+    for day in (6, 21):
+        auc, _, _ = _day(pack_with_shbg, day)
+        assert auc == pytest.approx(ALESSE_TABLE_I[day][0], rel=0.05)
+
+
+def test_shbg_predicts_steady_state_low_and_peak(pack_with_shbg):
+    """Not fitted: the day-21 low and peak land within the label's mean ± SD."""
+    _, peak, low = _day(pack_with_shbg, 21)
+    assert low == pytest.approx(ALESSE_STEADY_STATE["cmin_ng_ml"], rel=0.10)  # 2.04 vs. 1.9
+    assert abs(peak - ALESSE_STEADY_STATE["cmax_ng_ml"]) < 2.65  # 4.94 vs. 6.0 ± 2.65
+    assert peak < ALESSE_STEADY_STATE["cmax_ng_ml"]  # known shortfall: volume kept fixed
+
+
+def _late_drop(drug, doses, dose_mg, late_h, shbg=None):
+    """% below the usual low when the day-15 pill is ``late_h`` hours late (None = skipped)."""
+    due = 14 * DAY
+    t = np.linspace(0, due + 5 * DAY, int((due + 5 * DAY) * 20) + 1)
+    on = simulate(drug, doses, dose_mg, t, shbg=shbg).conc
+    moved = [d for d in doses if d != due] + ([] if late_h is None else [due + late_h])
+    lat = simulate(drug, sorted(moved), dose_mg, t, shbg=shbg).conc
+    low = on[int(np.searchsorted(t, due))]
+    after = t >= due
+    return 100 * (1 - lat[after].min() / low)
+
+
+def test_late_pill_hurts_minipill_more_than_combined_pill():
+    """The project's question, in the model: same delay, much smaller dip for the combined pill."""
+    net = _late_drop(NORETHINDRONE, np.arange(28) * DAY, NORETHINDRONE_DOSE_MG, 3)
+    lng = _late_drop(LEVONORGESTREL, np.arange(21) * DAY, LEVONORGESTREL_DOSE_MG, 3, shbg=SHBG)
+    assert net == pytest.approx(23, abs=1)
+    assert lng < net / 3
