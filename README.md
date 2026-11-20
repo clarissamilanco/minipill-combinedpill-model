@@ -21,7 +21,7 @@
 - **So a late combined pill matters much less.** A pill 3 hours late dips its levels about 4% below their usual low (the minipill: 23%). A whole pill missed dips them about 28% (the minipill: 88%).
 - **Each pill's CDC limit lands at a similar dip.** The minipill 3 hours late dips 23%; the combined pill with one pill missed, still under CDC's 48-hour limit, dips 28%. Past 48 hours (two pills missed) it dips 49%.
 
-Interactive charts: `app/pill_comparison.html` puts both pills on the same charts, with a plain-language explainer of SHBG. Single-drug pages: `app/norethindrone_preview.html` and `app/levonorgestrel_preview.html` (levonorgestrel without SHBG).
+Try it in the [live app](https://clarissamilanco.github.io/minipill-combinedpill-model/); [How to use](#how-to-use) walks through each chart.
 
 ## The question
 
@@ -41,13 +41,31 @@ My starting hypothesis:
 
 ## What the program does
 
-The app simulates hormone levels in the blood over a full pill pack, with both pills side by side. You can:
+The app simulates hormone levels in the blood for both pills side by side: the minipill (0.35 mg norethindrone, every day) and a combined pill (Alesse: 0.10 mg levonorgestrel + ethinyl estradiol, 21 active / 7 placebo). You can:
 
-- choose a pill: the minipill (0.35 mg norethindrone) or a combined pill (levonorgestrel + ethinyl estradiol, 21 active / 7 placebo);
-- take each dose on time, late, or not at all;
+- enter a weight and height and see how body size changes the levels;
+- take the day-15 pill on time, up to 23.5 hours late, or miss one or two pills;
 - watch how far hormone levels fall and how long they take to recover.
 
 There is no single "safe" hormone level, because the minipill only stops ovulation in about half of users and works largely by thickening cervical mucus. So instead of using a made-up threshold, the app compares each pill against itself: **how far below that pill's usual daily low point do levels fall when a dose is 3 hours late versus 48 hours late?** If the drops are similar, half-life explains the timing rules. If not, something else must matter too.
+
+## How to use
+
+Open the [live app](https://clarissamilanco.github.io/minipill-combinedpill-model/). It runs in any browser, on a phone or a computer; there's nothing to install. Blue is always the minipill, orange the combined pill. Hover over (or tap) any chart to read exact values.
+
+1. **Body size.** Enter a weight and height (switch between kg, cm and lb, ft in at the left). The panel shows the BMI, how fast the model clears the hormones compared with normal BMI, and each hormone's half-life. Every chart tagged with a BMI below redraws to match. The default (60 kg, 166 cm, BMI 21.8) uses the drug labels' values unchanged.
+2. **One pill each.** Both hormones after a single pill, with the label's measured values as dots (mean ± SD). Switch between **Log** and **Linear** scales, and tick **One-compartment versions** off to hide the simpler models that miss the label peaks.
+3. **SHBG.** How the combined pill's estrogen raises SHBG over a pack, against the values measured in the Alesse study.
+4. **A month of pills.** 28 days of each pill. The shaded band is the combined pill's placebo week; open circles are Alesse measurements; the faint dashed line is the combined pill without the SHBG effect.
+5. **When a pill is late.** Drag the slider to make the day-15 pill 0–23.5 hours late, or use the buttons: *On time*, *3 h late*, *12 h late*, *1 pill missed*, *2 pills missed*. Each pill is shown as a percent of its own usual daily low (the dotted 100% line), so both fit one scale. Under the chart, **Lowest level** is how far each pill falls and **Extra time below usual low** is how long it stays under.
+
+**Things to try**
+
+- Compare each pill at its CDC limit: the minipill at **3 h late** vs. the combined pill at **1 pill missed**. The dips are similar (23% vs. 28%).
+- Then try **2 pills missed**, past the combined pill's 48-hour limit.
+- Raise the weight to a BMI above 30 and watch both dips shrink. Read the caveat in the Body size section first: this is the model's result, not what the obesity study was worried about (see [Body size (BMI)](#body-size-bmi)).
+
+Single-drug pages, from earlier in the project: [norethindrone](https://clarissamilanco.github.io/minipill-combinedpill-model/app/norethindrone_preview.html) and [levonorgestrel without SHBG](https://clarissamilanco.github.io/minipill-combinedpill-model/app/levonorgestrel_preview.html).
 
 ## How the model works
 
@@ -175,7 +193,9 @@ At each pill's CDC limit the dips are similar: 23% for the minipill at 3 hours, 
 
 ## Running it
 
-**Online:** Use the live app (link above). Nothing to install.
+**Online:** Use the live app (link above). Nothing to install; see [How to use](#how-to-use).
+
+**Offline:** open `app/pill_comparison.html` in a browser. The charts work without a server.
 
 **Locally** (Python 3.13+):
 
@@ -197,7 +217,7 @@ pytest
 python scripts/fit_norethindrone.py
 python scripts/fit_levonorgestrel.py             # add --profile to compare absorption rates
 python scripts/fit_shbg.py                       # SHBG curve and strength, from Alesse Table I
-python scripts/export_comparison_data.py         # re-embed the SHBG curves in app/pill_comparison.html
+python scripts/export_comparison_data.py         # re-embed the model's curves (9 BMIs) in app/pill_comparison.html
 ```
 
 ## Repository layout
