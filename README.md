@@ -4,9 +4,9 @@
 
 02-120 Programming for Scientists · Fall 2026 · Final Project
 
-> **Status:** In progress. The first version of the app goes live by November 20.
+> **Status:** In progress. First version of the app live November 20, 2026.
 >
-> **Live app:** _link coming_ · **Video demo:** _link coming_
+> **Live app:** [clarissamilanco.github.io/minipill-combinedpill-model](https://clarissamilanco.github.io/minipill-combinedpill-model/) · **Video demo:** _link coming_
 
 > This is an educational model built for a course project. It is not medical advice. If you have questions about your own birth control, talk to a doctor or pharmacist.
 
