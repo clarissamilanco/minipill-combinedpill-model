@@ -96,6 +96,26 @@ $$\frac{dS}{dt} = k_S\,(S_{\text{target}} - S), \qquad k_{10}(t) = k_{10}\left(\
 
 **Limits.** The label also shows *unbound* levonorgestrel rising and its unbound clearance falling (2.79 → 1.57 L/h/kg), so the estrogen effect isn't binding alone. In the model, SHBG stands for the whole effect. The label's volume of distribution also shrinks over the cycle (Vz/F 2.66 → 1.43 L/kg), which the model doesn't include, so it underpredicts the week-3 peak.
 
+### Body size (BMI)
+
+**The data.** Edelman et al. (2009) gave Alesse to 10 women of normal BMI (mean 21.9) and 10 with obesity (mean 37.3). Levonorgestrel's half-life was 25.6 h vs. 52.1 h; volume of distribution and SHBG didn't differ. Same volume with twice the half-life means clearance × 0.49.
+
+**In the model.** `clearance_factor_for_bmi` in `params.py` scales `k10` (clearance) by 1 up to BMI 21.9, by 0.49 from 37.3 up, and smoothly in between (log of clearance linear in BMI). Nothing else changes. The comparison page takes weight and height (kg/cm or lb/ft-in), works out BMI and redraws every chart.
+
+**Assumptions.** Only two groups were measured, so the in-between curve is a guess; it stays flat above 37.3 because the heaviest women in the study (BMI ≥ 40) looked like the rest of the obese group. The label studies are taken to be normal-BMI women. **Norethindrone has no BMI data**: the minipill gets the same change as an untested assumption.
+
+**Check.** Clearance matches by construction. Levonorgestrel's half-life rises ×1.75 in the model (34 → 60 h) vs. ×2.03 measured, because the two-compartment model can't change both with `k10` alone.
+
+**Result.** Slower clearance keeps levels higher, so in the model a higher BMI makes a late pill dip *less*:
+
+| BMI | Minipill, 3 h late | Combined, 3 h late | Minipill, 1 missed | Combined, 1 missed |
+| --- | --- | --- | --- | --- |
+| 21.9 | 23% | 4% | 88% | 28% |
+| 30 | 20% | 3% | 83% | 21% |
+| 37.3 | 16% | 2% | 76% | 16% |
+
+This doesn't capture Edelman's concern, which is about the start of each pack: obese women took about twice as long to reach steady levels, and had a lower first-day peak (1.9 vs. 2.5 ng/mL, not statistically significant). Slower clearance alone can't produce a lower peak, so whatever caused it isn't in the model.
+
 ## How I know it's right
 
 | Check | What it tests | Expected result | Status |
@@ -207,14 +227,14 @@ Full tables, with sources for every value, are in [`sources/`](sources/).
 ## Assumptions and limitations
 
 - Hormone level is used as a stand-in for protection. In reality, the minipill also works through cervical mucus, and the model doesn't simulate ovulation itself.
-- Parameters are averages from label studies. Real people vary, and published data show that body weight can roughly double levonorgestrel's half-life.
+- Parameters are averages from label studies. Real people vary. Body size changes only clearance, from one small study of levonorgestrel (see "Body size"); the same change is assumed for norethindrone.
 - The SHBG effect is calibrated to one study (Alesse, 22 women), not measured directly. SHBG stands for the whole estrogen effect on levonorgestrel's clearance, and the shrinking volume of distribution isn't modeled, so week-3 peaks are underpredicted.
 - Ethinyl estradiol itself isn't simulated: estrogen counts as "on" for 24 h after each active pill.
 - Drug interactions, food, and vomiting or diarrhea are not modeled (yet).
 
 ## Possible extensions
 
-- **Body weight:** reproduce published differences in levonorgestrel kinetics between normal-BMI and obese users (Edelman et al., 2009), then see what the model predicts for the minipill, where no such data exist.
+- **Body size, start of pack:** model the first week after the placebo week, where Edelman et al. saw the obese group's risk, and look for what could lower the first-day peak (absorption, volume).
 - **Drug interactions:** a drug like rifampin speeds up the enzyme that breaks down ethinyl estradiol, which should lower SHBG and then levonorgestrel.
 
 ## Sources

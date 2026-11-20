@@ -1,5 +1,7 @@
 """Drug parameters, with sources. See sources/Model Parameters .pdf for the full table."""
 
+import numpy as np
+
 from minipill.pk import LN2, Drug, SHBGEffect, ka_from_tmax
 
 # Assumed body weight to turn the label's L/kg volume into litres. Not from a source.
@@ -117,3 +119,37 @@ SHBG = SHBGEffect(
     k_per_h=0.2143 / 24,  # 1/h, fitted; SHBG gets half-way to its plateau in 3.2 days
     gamma=1.331,  # fitted
 )
+
+# --- Body size (BMI) -----------------------------------------------------------
+# Edelman et al. 2009 (sources/edelman_2009_obesity_oral_contraceptives.pdf):
+# Alesse in 10 normal-BMI and 10 obese women. Levonorgestrel half-life 25.6 ± 9.3 h
+# vs. 52.1 ± 29.4 h; volume of distribution NOT different; clearance lower (p < 0.05);
+# SHBG not different. Same volume with twice the half-life means clearance × 25.6/52.1.
+EDELMAN_2009 = {
+    "bmi_normal": 21.9,  # ± 1.6 kg/m², group mean
+    "bmi_obese": 37.3,  # ± 6.0 kg/m², group mean
+    "lng_half_life_normal_h": 25.6,  # ± 9.3
+    "lng_half_life_obese_h": 52.1,  # ± 29.4
+}
+BMI_REFERENCE = EDELMAN_2009["bmi_normal"]
+BMI_OBESE = EDELMAN_2009["bmi_obese"]
+OBESE_CLEARANCE_RATIO = EDELMAN_2009["lng_half_life_normal_h"] / EDELMAN_2009["lng_half_life_obese_h"]  # 0.49
+
+
+def clearance_factor_for_bmi(bmi):
+    """Clearance relative to normal BMI, for levonorgestrel (Edelman 2009).
+
+    ASSUMPTIONS (the study has only two groups):
+     - 1 up to BMI 21.9: the label studies (Alesse, norethindrone) are taken to be
+       normal-BMI women; trials of the time excluded women over 130% of ideal weight.
+     - 0.49 from BMI 37.3 up: Edelman's heaviest women (BMI >= 40) looked no
+       different from the rest of the obese group.
+     - In between, a smooth geometric change (log of clearance linear in BMI).
+    Applied to norethindrone as well, with no data: an untested assumption.
+    """
+    frac = np.clip((np.asarray(bmi, dtype=float) - BMI_REFERENCE) / (BMI_OBESE - BMI_REFERENCE), 0.0, 1.0)
+    return OBESE_CLEARANCE_RATIO ** frac
+
+
+def bmi(weight_kg, height_m):
+    return weight_kg / height_m**2

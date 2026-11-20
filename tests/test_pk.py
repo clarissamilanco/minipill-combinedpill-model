@@ -4,10 +4,11 @@ import pytest
 from minipill.params import (
     ALESSE_DAY1, ALESSE_SHBG_NMOL_L, ALESSE_STEADY_STATE, ALESSE_TABLE_I, LEVONORGESTREL, LEVONORGESTREL_1C, SHBG,
     LEVONORGESTREL_DOSE_MG, NORETHINDRONE, NORETHINDRONE_1C, NORETHINDRONE_DOSE_MG, NORETHINDRONE_LABEL,
+    BMI_OBESE, BMI_REFERENCE, OBESE_CLEARANCE_RATIO, bmi, clearance_factor_for_bmi,
 )
 from minipill.pk import (
     Drug, SHBGEffect, accumulation_ratio, bateman, exact_single_dose, ka_from_tmax, mg_per_l_to_ng_per_ml,
-    mg_per_l_to_pg_per_ml, simulate, tmax,
+    mg_per_l_to_pg_per_ml, simulate, single_dose_terms, tmax,
 )
 
 DAY = 24.0
@@ -278,3 +279,53 @@ def test_late_pill_hurts_minipill_more_than_combined_pill():
     lng = _late_drop(LEVONORGESTREL, np.arange(21) * DAY, LEVONORGESTREL_DOSE_MG, 3, shbg=SHBG)
     assert net == pytest.approx(23, abs=1)
     assert lng < net / 3
+
+
+# --- Body size (Edelman 2009) ---------------------------------------------------
+
+def test_bmi():
+    assert bmi(60.0, 1.65) == pytest.approx(22.04, abs=0.01)
+
+
+def test_clearance_factor_for_bmi():
+    """1 at normal BMI and below, Edelman's 0.49 at the obese mean and above, steadily falling between."""
+    assert OBESE_CLEARANCE_RATIO == pytest.approx(25.6 / 52.1)
+    assert clearance_factor_for_bmi(18.0) == 1.0
+    assert clearance_factor_for_bmi(BMI_REFERENCE) == pytest.approx(1.0)
+    assert clearance_factor_for_bmi(BMI_OBESE) == pytest.approx(OBESE_CLEARANCE_RATIO)
+    assert clearance_factor_for_bmi(45.0) == pytest.approx(OBESE_CLEARANCE_RATIO)
+    mid = clearance_factor_for_bmi((BMI_REFERENCE + BMI_OBESE) / 2)
+    assert mid == pytest.approx(np.sqrt(OBESE_CLEARANCE_RATIO))  # geometric halfway
+    f = clearance_factor_for_bmi(np.linspace(15, 50, 200))
+    assert np.all(np.diff(f) <= 0)
+
+
+@pytest.mark.parametrize("drug", ALL_DRUGS, ids=ids)
+def test_scaled_clearance(drug):
+    """Only k10 changes: clearance scales exactly, volumes stay, single-dose AUC scales by 1/factor."""
+    s = drug.with_clearance_scaled(0.5)
+    assert s.clearance_L_per_h == pytest.approx(0.5 * drug.clearance_L_per_h)
+    assert (s.ka, s.F, s.V_L, s.k12, s.k21) == (drug.ka, drug.F, drug.V_L, drug.k12, drug.k21)
+    assert s.vss_L == pytest.approx(drug.vss_L)
+    auc = lambda d: np.sum(np.divide(*single_dose_terms(d, 1.0)[::-1]))  # integral of sum a e^(-rt)
+    assert auc(s) == pytest.approx(2 * auc(drug), rel=1e-9)
+    with pytest.raises(ValueError):
+        drug.with_clearance_scaled(0)
+
+
+@pytest.mark.parametrize("drug", ALL_DRUGS, ids=ids)
+def test_single_dose_terms_match_exact(drug):
+    rates, amps = single_dose_terms(drug, 0.2)
+    assert len(rates) == drug.n_compartments + 1
+    t = np.linspace(0, 96, 500)
+    c = np.sum(amps[:, None] * np.exp(-np.outer(rates, t)), axis=0)
+    np.testing.assert_allclose(c, exact_single_dose(drug, 0.2, t), rtol=1e-12, atol=1e-18)
+
+
+def test_obese_levonorgestrel_matches_edelman():
+    """Clearance is matched by construction; the half-life is a check: x1.75 in the model vs. x2.03 measured
+    (the two-compartment model can't change both with k10 alone, so it falls short)."""
+    obese = LEVONORGESTREL.with_clearance_scaled(clearance_factor_for_bmi(BMI_OBESE))
+    ratio = obese.terminal_half_life_h / LEVONORGESTREL.terminal_half_life_h
+    assert ratio == pytest.approx(1.75, abs=0.01)
+    assert ratio < 1 / OBESE_CLEARANCE_RATIO

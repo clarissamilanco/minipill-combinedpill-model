@@ -33,7 +33,7 @@ the model is no longer linear, so only the step-by-step ``simulate`` handles it.
 """
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -94,6 +94,12 @@ class Drug:
     def vss_L(self) -> float:
         """Volume of distribution at steady state, V1 (1 + k12 / k21)."""
         return self.V_L * (1 + self.k12 / self.k21) if self.k12 > 0 else self.V_L
+
+    def with_clearance_scaled(self, factor: float) -> "Drug":
+        """The same drug with clearance multiplied by ``factor`` (k10 scaled; volumes unchanged)."""
+        if factor <= 0:
+            raise ValueError("factor must be > 0")
+        return replace(self, k10=self.k10 * factor)
 
 
 @dataclass(frozen=True)
@@ -243,13 +249,12 @@ def bateman(drug: Drug, dose_mg: float, t):
     return np.where(t >= 0, c, 0.0)
 
 
-def exact_single_dose(drug: Drug, dose_mg: float, t):
-    """Exact concentration (mg/L) after one dose at t = 0, for one or two compartments.
+def single_dose_terms(drug: Drug, dose_mg: float) -> tuple[np.ndarray, np.ndarray]:
+    """Rates r (1/h) and amplitudes a (mg/L) with C(t) = sum a exp(-r t) after one dose at t = 0.
 
-    The model is linear, y' = M y, so y(t) = P exp(D t) P^-1 y0 using the
-    eigendecomposition of M. Independent of the ODE solver used in ``simulate``.
+    Terms with zero amplitude (the unused peripheral compartment of a
+    one-compartment drug) are dropped. See ``exact_single_dose`` for the method.
     """
-    t = np.asarray(t, dtype=float)
     ka, F, k10, k12, k21 = drug.ka, drug.F, drug.k10, drug.k12, drug.k21
     M = np.array([
         [-ka, 0.0, 0.0],
@@ -260,9 +265,22 @@ def exact_single_dose(drug: Drug, dose_mg: float, t):
     if np.min(np.abs(np.subtract.outer(lam, lam)) + np.eye(3)) < 1e-9:
         raise ValueError("repeated rates: exact solution needs distinct ka, alpha, beta")
     coef = np.linalg.solve(P, [dose_mg, 0.0, 0.0])
+    amps = np.real(P[1] * coef) / drug.V_L
+    keep = np.abs(amps) > 1e-12 * np.max(np.abs(amps))
+    return -np.real(lam[keep]), amps[keep]
+
+
+def exact_single_dose(drug: Drug, dose_mg: float, t):
+    """Exact concentration (mg/L) after one dose at t = 0, for one or two compartments.
+
+    The model is linear, y' = M y, so y(t) = P exp(D t) P^-1 y0 using the
+    eigendecomposition of M. Independent of the ODE solver used in ``simulate``.
+    """
+    t = np.asarray(t, dtype=float)
+    rates, amps = single_dose_terms(drug, dose_mg)
     tt = np.clip(t, 0, None).ravel()
-    central = ((P[1] * coef) @ np.exp(np.outer(lam, tt))).reshape(t.shape)
-    return np.where(t >= 0, np.real(central) / drug.V_L, 0.0)
+    central = (amps @ np.exp(-np.outer(rates, tt))).reshape(t.shape)
+    return np.where(t >= 0, central, 0.0)
 
 
 def tmax(ka: float, k: float) -> float:
